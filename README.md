@@ -53,10 +53,10 @@ The Coordinate Calculator is a Python-based GUI application that assists with ca
 1. **Run the application:**
 
    ```bash
-   python coordinate_calculator_app.py
+   python VOR FIX CALCULATION.py
    ```
 
-   *(Replace `coordinate_calculator_app.py` with the actual filename if different.)*
+   *(Replace `VOR FIX CALCULATION.py` with the actual filename if different.)*
 
 2. **Using the tool:**
    - Select the desired mode (WAYPOINT or FIX) from the mode selection dropdown.
@@ -66,7 +66,7 @@ The Coordinate Calculator is a Python-based GUI application that assists with ca
 
 ## Project Structure
 
-- `coordinate_calculator_app.py`
+- `VOR FIX CALCULATION.py`
   - The main Python file that contains the GUI code and all logic for coordinate calculation.
 - Additional supporting files (if any) can be added to further modularize the project.
 
