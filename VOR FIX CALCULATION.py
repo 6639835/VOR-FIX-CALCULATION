@@ -1,6 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 from geographiclib.geodesic import Geodesic
+import math
 
 # 地球椭球模型常量
 GEODESIC = Geodesic.WGS84
@@ -18,7 +19,7 @@ def get_radius_letter(distance_nm):
     根据距离获取单字母标记
     """
     ranges = [
-        (0.5, 1.4, 'A'), (1.5, 2.4, 'B'), (2.5, 3.4, 'C'), (3.5, 4.4, 'D'),
+        (0.1, 1.4, 'A'), (1.5, 2.4, 'B'), (2.5, 3.4, 'C'), (3.5, 4.4, 'D'),
         (4.5, 5.4, 'E'), (5.5, 6.4, 'F'), (6.5, 7.4, 'G'), (7.5, 8.4, 'H'),
         (8.5, 9.4, 'I'), (9.5, 10.4, 'J'), (10.5, 11.4, 'K'), (11.5, 12.4, 'L'),
         (12.5, 13.4, 'M'), (13.5, 14.4, 'N'), (14.5, 15.4, 'O'), (15.5, 16.4, 'P'),
@@ -29,6 +30,7 @@ def get_radius_letter(distance_nm):
     for low, high, letter in ranges:
         if low <= distance_nm <= high:
             return letter
+    # 'Z' is chosen as the fallback letter when the distance does not fall within any specified range
     return 'Z'
 
 class CoordinateCalculatorApp:
@@ -37,7 +39,7 @@ class CoordinateCalculatorApp:
         self.root.title("坐标计算工具")
 
         # 设置窗口大小及位置（可按需改动）
-        self.root.geometry("700x600")
+        self.root.geometry("700x650") # 调整窗口高度以适应新的输入框
 
         # 模式选择
         self.mode_var = tk.StringVar(value="WAYPOINT")
@@ -75,6 +77,7 @@ class CoordinateCalculatorApp:
         combo_mode.pack(side=tk.LEFT, padx=5)
 
         # 当选择发生变化时触发
+        # 'write' 表示当变量的值发生变化时触发回调函数
         self.mode_var.trace_add('write', self.on_mode_change)
 
     def on_mode_change(self, *args):
@@ -118,13 +121,17 @@ class CoordinateCalculatorApp:
         self.entry_airport_code = tk.Entry(frm, width=30)
         self.entry_airport_code.grid(row=4, column=1, padx=5, pady=5)
 
-        tk.Label(frm, text="操作类型:").grid(row=5, column=0, padx=5, pady=5, sticky="e")
+        tk.Label(frm, text="VOR 标识符 (3-4个字母):").grid(row=5, column=0, padx=5, pady=5, sticky="e")
+        self.entry_vor_identifier = tk.Entry(frm, width=30)
+        self.entry_vor_identifier.grid(row=5, column=1, padx=5, pady=5)
+
+        tk.Label(frm, text="操作类型:").grid(row=6, column=0, padx=5, pady=5, sticky="e")
         self.combo_operation_type = ttk.Combobox(frm, values=["离场", "进场", "进近"], state="readonly")
-        self.combo_operation_type.current(0)  # 仍然默认显示第一项
-        self.combo_operation_type.grid(row=5, column=1, padx=5, pady=5)
+        self.combo_operation_type.current(0)
+        self.combo_operation_type.grid(row=6, column=1, padx=5, pady=5)
 
         btn_calc = tk.Button(frm, text="计算 Waypoint", command=self.on_calculate_waypoint)
-        btn_calc.grid(row=6, column=0, columnspan=2, pady=5)
+        btn_calc.grid(row=7, column=0, columnspan=2, pady=5)
 
     def create_fix_ui(self):
         """
@@ -142,7 +149,7 @@ class CoordinateCalculatorApp:
         self.combo_fix_type.grid(row=1, column=1, padx=5, pady=5)
 
         tk.Label(frm, text="FIX 使用:").grid(row=2, column=0, padx=5, pady=5, sticky="e")
-        self.combo_fix_usage = ttk.Combobox(frm, 
+        self.combo_fix_usage = ttk.Combobox(frm,
             values=[
                 "Final approach fix",
                 "Initial approach fix",
@@ -178,7 +185,7 @@ class CoordinateCalculatorApp:
         frm_output = tk.LabelFrame(self.root, text="输出结果", padx=10, pady=5)
         frm_output.pack(padx=10, pady=5, fill="both", expand=True)
 
-        self.output_entry = tk.Text(frm_output, width=80, height=6)
+        self.output_entry = tk.Text(frm_output, width=80, height=8) # 增加高度以防输出内容过长
         self.output_entry.pack(padx=5, pady=5, fill="both", expand=True)
 
     def create_bottom_buttons(self):
@@ -207,6 +214,7 @@ class CoordinateCalculatorApp:
             self.entry_distance.delete(0, tk.END)
             self.entry_declination.delete(0, tk.END)
             self.entry_airport_code.delete(0, tk.END)
+            self.entry_vor_identifier.delete(0, tk.END) # 清空 VOR Identifier
         else:
             self.entry_fix_coords.delete(0, tk.END)
             self.entry_runway_code.delete(0, tk.END)
@@ -252,7 +260,11 @@ class CoordinateCalculatorApp:
                 airport_code = self.entry_airport_code.get().strip().upper()
                 if len(airport_code) != 4:
                     raise ValueError("机场代码必须是 4 个字母")
-                return lat_vor, lon_vor, magnetic_bearing, distance_nm, declination, airport_code
+                vor_identifier = self.entry_vor_identifier.get().strip().upper() # 获取 VOR Identifier
+                if vor_identifier and not (3 <= len(vor_identifier) <= 4) and not vor_identifier.isalpha(): # Basic validation for identifier format
+                    raise ValueError("VOR 标识符应为 3-4 个字母")
+
+                return lat_vor, lon_vor, magnetic_bearing, distance_nm, declination, airport_code, vor_identifier # 返回 vor_identifier
             except ValueError as e:
                 messagebox.showerror("输入错误", f"WAYPOINT 模式输入错误：{e}")
                 return None
@@ -275,7 +287,7 @@ class CoordinateCalculatorApp:
                 messagebox.showerror("输入错误", f"FIX 模式输入错误：{e}")
                 return None
 
-    def process_output(self, result, mode):
+    def process_output(self, result, mode, vor_identifier="", magnetic_bearing="", distance_nm=""): # 添加 vor_identifier, magnetic_bearing, distance_nm 参数
         """
         处理计算结果并显示输出
         """
@@ -283,9 +295,16 @@ class CoordinateCalculatorApp:
             lat_target, lon_target, radius_letter, airport_code, operation_code = result
             output = (
                 f"{lat_target:.9f} {lon_target:.9f} "
-                f"D{int(self.entry_bearing.get()):03d}{radius_letter} "
-                f"{airport_code} {airport_code[:2]} {operation_code}"
+                f"D{int(magnetic_bearing):03d}{radius_letter} " # 使用传入的 magnetic_bearing
+                f"{airport_code} {airport_code[:2]}" # Removed operation_code here
             )
+            if vor_identifier: # 如果 VOR Identifier 不为空，则添加额外信息
+                rounded_distance_nm = int(round(distance_nm)) # 四舍五入距离
+                magnetic_bearing_int = int(magnetic_bearing) # 磁航向取整
+                output += f" {operation_code} {vor_identifier}{magnetic_bearing_int:03d}{rounded_distance_nm:03d}" # 添加 VOR info, 格式化距离为三位数，前导0, 磁航向格式化为三位数
+            else:
+                 output += f" {operation_code}" # 否则只添加 operation code, although this line is likely unreachable when vor_identifier is used
+
         else:  # FIX
             lat, lon, fix_code, usage_code, runway_code, airport_code, operation_code = result
             output = (
@@ -303,7 +322,7 @@ class CoordinateCalculatorApp:
         if params is None:
             return
 
-        lat_vor, lon_vor, magnetic_bearing, distance_nm, declination, airport_code = params
+        lat_vor, lon_vor, magnetic_bearing, distance_nm, declination, airport_code, vor_identifier = params # 获取 vor_identifier
         try:
             lat_target, lon_target = self.calculate_target_coords_vincenty(
                 lat_vor, lon_vor, magnetic_bearing, distance_nm, declination
@@ -322,7 +341,13 @@ class CoordinateCalculatorApp:
                 airport_code,
                 operation_code
             )
-            self.process_output(result, "WAYPOINT")
+            self.process_output(
+                result,
+                "WAYPOINT",
+                vor_identifier, # 传递 vor_identifier
+                magnetic_bearing, # 传递 magnetic_bearing
+                distance_nm # 传递 distance_nm
+            )
         except Exception as e:
             messagebox.showerror("计算错误", f"计算过程中发生错误：{str(e)}")
 
