@@ -293,19 +293,32 @@ class CoordinateCalculatorApp:
         """
         if mode == "WAYPOINT":
             lat_target, lon_target, radius_letter, airport_code, operation_code = result
-            output = (
-                f"{lat_target:.9f} {lon_target:.9f} "
-                f"D{int(magnetic_bearing):03d}{radius_letter} " # 使用传入的 magnetic_bearing
-                f"{airport_code} {airport_code[:2]}" # Removed operation_code here
-            )
-            if vor_identifier: # 如果 VOR Identifier 不为空，则添加额外信息
-                rounded_distance_nm = int(round(distance_nm)) # 四舍五入距离
-                magnetic_bearing_int = int(magnetic_bearing) # 磁航向取整
-                output += f" {operation_code} {vor_identifier}{magnetic_bearing_int:03d}{rounded_distance_nm:03d}" # 添加 VOR info, 格式化距离为三位数，前导0, 磁航向格式化为三位数
-            else:
-                 output += f" {operation_code}" # 否则只添加 operation code, although this line is likely unreachable when vor_identifier is used
+            if distance_nm > 26.5: # 判断海里数是否超过 26.5
+                rounded_distance_nm_int = int(round(distance_nm))
+                output = (
+                    f"{lat_target:.9f} {lon_target:.9f} "
+                    f"{vor_identifier}{rounded_distance_nm_int} " # 输出 VOR Identifier + 海里数，不加前导0
+                    f"{airport_code} {airport_code[:2]}"
+                )
+                if vor_identifier: # 如果 VOR Identifier 不为空，则添加额外信息
+                    magnetic_bearing_int = int(magnetic_bearing) # 磁航向取整
+                    output += f" {operation_code} {vor_identifier}{magnetic_bearing_int:03d}{rounded_distance_nm_int:03d}" # 添加 VOR info, 格式化距离为三位数，前导0, 磁航向格式化为三位数
+                else:
+                    output += f" {operation_code}"
 
-        else:  # FIX
+            else: # 海里数小于等于 26.5，保持原有格式
+                output = (
+                    f"{lat_target:.9f} {lon_target:.9f} "
+                    f"D{int(magnetic_bearing):03d}{radius_letter} " # 原有格式：DXXX[Radius Letter]
+                    f"{airport_code} {airport_code[:2]}"
+                )
+                if vor_identifier: # 如果 VOR Identifier 不为空，则添加额外信息
+                    magnetic_bearing_int = int(magnetic_bearing) # 磁航向取整
+                    output += f" {operation_code} {vor_identifier}{magnetic_bearing_int:03d}{int(round(distance_nm)):03d}" # 添加 VOR info, 格式化距离为三位数，前导0, 磁航向格式化为三位数
+                else:
+                    output += f" {operation_code}"
+
+        else:  # FIX 模式保持不变
             lat, lon, fix_code, usage_code, runway_code, airport_code, operation_code = result
             output = (
                 f"{lat:.9f} {lon:.9f} {usage_code}{fix_code}{int(runway_code):02d} "
