@@ -78,6 +78,10 @@ The Coordinate Calculator is a Python-based GUI application that assists with ca
 2. **geographiclib Not Found:**
    - Install geographiclib with `pip install geographiclib` if it is not already installed.
 
+## Contributions:
+
+![Alt](https://repobeats.axiom.co/api/embed/99ff823a402aefae830d6336bca425e24b8df416.svg "Repobeats analytics image")
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
