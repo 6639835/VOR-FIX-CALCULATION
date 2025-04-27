@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox, filedialog
 from geographiclib.geodesic import Geodesic
 import math
 import os
+import datetime
 
 # Constants for the Earth's ellipsoid model
 GEODESIC = Geodesic.WGS84
@@ -39,6 +40,9 @@ class CoordinateCalculatorApp:
         self.fix_file_path = ""
         self.nav_file_path = ""
         self.search_file_type = tk.StringVar(value="NAV") # Default to NAV for WAYPOINT
+        
+        # Initialize history list to store calculation results
+        self.history = []
 
         self.create_mode_selection()
         self.create_file_selection()
@@ -171,26 +175,76 @@ class CoordinateCalculatorApp:
       self.entry_fix_coords = tk.Entry(frm, width=30)  # Modifiable
       self.entry_fix_coords.grid(row=2, column=1, padx=5, pady=5, sticky="ew") # Expand entry to fill cell
 
-      tk.Label(frm, text="FIX Type:", anchor="e").grid(row=3, column=0, padx=5, pady=5, sticky="e") # Aligned labels
+      # Add DME Calculation Section with separator
+      separator = ttk.Separator(frm, orient='horizontal')
+      separator.grid(row=3, column=0, columnspan=3, sticky="ew", pady=10)
+      
+      tk.Label(frm, text="DME Calculation", font=('Helvetica', 10, 'bold')).grid(row=4, column=0, columnspan=2, pady=5, sticky="w")
+      
+      # Add distance reference selector
+      tk.Label(frm, text="Distance Reference:", anchor="e").grid(row=5, column=0, padx=5, pady=5, sticky="e")
+      self.distance_reference = tk.StringVar(value="DME")
+      distance_frame = tk.Frame(frm)
+      distance_frame.grid(row=5, column=1, padx=5, pady=5, sticky="ew")
+      tk.Radiobutton(distance_frame, text="DME", variable=self.distance_reference, value="DME").pack(side=tk.LEFT, padx=5)
+      tk.Radiobutton(distance_frame, text="FIX", variable=self.distance_reference, value="FIX").pack(side=tk.LEFT, padx=5)
+
+      # DME Identifier Entry
+      tk.Label(frm, text="DME Identifier:", anchor="e").grid(row=6, column=0, padx=5, pady=5, sticky="e")
+      self.entry_dme_identifier = tk.Entry(frm, width=30)
+      self.entry_dme_identifier.grid(row=6, column=1, padx=5, pady=5, sticky="ew")
+      
+      # DME Coordinates Display
+      tk.Label(frm, text="DME Coordinates (Lat Lon):", anchor="e").grid(row=7, column=0, padx=5, pady=5, sticky="e")
+      self.entry_dme_coords = tk.Entry(frm, width=30)
+      self.entry_dme_coords.grid(row=7, column=1, padx=5, pady=5, sticky="ew")
+      
+      # Bearing and Distance from DME
+      tk.Label(frm, text="Magnetic Bearing (°):", anchor="e").grid(row=8, column=0, padx=5, pady=5, sticky="e")
+      self.entry_dme_bearing = tk.Entry(frm, width=30)
+      self.entry_dme_bearing.grid(row=8, column=1, padx=5, pady=5, sticky="ew")
+      
+      tk.Label(frm, text="Distance (NM):", anchor="e").grid(row=9, column=0, padx=5, pady=5, sticky="e")
+      self.entry_dme_distance = tk.Entry(frm, width=30)
+      self.entry_dme_distance.grid(row=9, column=1, padx=5, pady=5, sticky="ew")
+      
+      tk.Label(frm, text="Magnetic Declination (°):", anchor="e").grid(row=10, column=0, padx=5, pady=5, sticky="e")
+      self.entry_dme_declination = tk.Entry(frm, width=30)
+      self.entry_dme_declination.grid(row=10, column=1, padx=5, pady=5, sticky="ew")
+      
+      # Button to search for DME coordinates
+      btn_search_dme = tk.Button(frm, text="Search DME", command=self.search_dme_coords)
+      btn_search_dme.grid(row=6, column=2, padx=5, pady=5)
+      
+      # Button to calculate from DME
+      btn_calc_from_dme = tk.Button(frm, text="Calculate Intersection", command=self.calculate_from_dme)
+      btn_calc_from_dme.grid(row=11, column=0, columnspan=2, pady=5)
+      
+      # Add another separator
+      separator2 = ttk.Separator(frm, orient='horizontal')
+      separator2.grid(row=12, column=0, columnspan=3, sticky="ew", pady=10)
+      
+      # FIX Type and other fields moved down
+      tk.Label(frm, text="FIX Type:", anchor="e").grid(row=13, column=0, padx=5, pady=5, sticky="e") # Aligned labels
       self.combo_fix_type = ttk.Combobox(frm, values=["VORDME", "VOR", "NDBDME", "NDB", "ILS", "RNP"], state="readonly")
       self.combo_fix_type.current(0)
-      self.combo_fix_type.grid(row=3, column=1, padx=5, pady=5, sticky="ew") # Expand combobox to fill cell
-      tk.Label(frm, text="FIX Usage:", anchor="e").grid(row=4, column=0, padx=5, pady=5, sticky="e") # Aligned labels
+      self.combo_fix_type.grid(row=13, column=1, padx=5, pady=5, sticky="ew") # Expand combobox to fill cell
+      tk.Label(frm, text="FIX Usage:", anchor="e").grid(row=14, column=0, padx=5, pady=5, sticky="e") # Aligned labels
       self.combo_fix_usage = ttk.Combobox(frm, values=["Final approach fix", "Initial approach fix", "Intermediate approach fix", "Final approach course fix", "Missed approach point fix"], state="readonly")
       self.combo_fix_usage.current(0)
-      self.combo_fix_usage.grid(row=4, column=1, padx=5, pady=5, sticky="ew") # Expand combobox to fill cell
-      tk.Label(frm, text="Runway Code:", anchor="e").grid(row=5, column=0, padx=5, pady=5, sticky="e") # Aligned labels
+      self.combo_fix_usage.grid(row=14, column=1, padx=5, pady=5, sticky="ew") # Expand combobox to fill cell
+      tk.Label(frm, text="Runway Code:", anchor="e").grid(row=15, column=0, padx=5, pady=5, sticky="e") # Aligned labels
       self.entry_runway_code = tk.Entry(frm, width=30)
-      self.entry_runway_code.grid(row=5, column=1, padx=5, pady=5, sticky="ew") # Expand entry to fill cell
-      tk.Label(frm, text="Airport Code:", anchor="e").grid(row=6, column=0, padx=5, pady=5, sticky="e") # Aligned labels
+      self.entry_runway_code.grid(row=15, column=1, padx=5, pady=5, sticky="ew") # Expand entry to fill cell
+      tk.Label(frm, text="Airport Code:", anchor="e").grid(row=16, column=0, padx=5, pady=5, sticky="e") # Aligned labels
       self.entry_fix_airport_code = tk.Entry(frm, width=30)
-      self.entry_fix_airport_code.grid(row=6, column=1, padx=5, pady=5, sticky="ew") # Expand entry to fill cell
-      tk.Label(frm, text="Operation Type:", anchor="e").grid(row=7, column=0, padx=5, pady=5, sticky="e") # Aligned labels
+      self.entry_fix_airport_code.grid(row=16, column=1, padx=5, pady=5, sticky="ew") # Expand entry to fill cell
+      tk.Label(frm, text="Operation Type:", anchor="e").grid(row=17, column=0, padx=5, pady=5, sticky="e") # Aligned labels
       self.combo_fix_operation_type = ttk.Combobox(frm, values=["Departure", "Arrival", "Approach"], state="readonly")
       self.combo_fix_operation_type.current(0)
-      self.combo_fix_operation_type.grid(row=7, column=1, padx=5, pady=5, sticky="ew") # Expand combobox to fill cell
+      self.combo_fix_operation_type.grid(row=17, column=1, padx=5, pady=5, sticky="ew") # Expand combobox to fill cell
       btn_calc = tk.Button(frm, text="Calculate FIX", command=self.on_calculate_fix)
-      btn_calc.grid(row=8, column=0, columnspan=2, pady=5)
+      btn_calc.grid(row=18, column=0, columnspan=2, pady=5)
 
       # Button to search for coordinates
       btn_search_fix = tk.Button(frm, text="Search Coordinates", command=self.search_fix_coords)
@@ -210,6 +264,8 @@ class CoordinateCalculatorApp:
         btn_clear.pack(side=tk.LEFT, padx=5)
         btn_copy = tk.Button(frm_btn, text="Copy Result", command=self.copy_output)
         btn_copy.pack(side=tk.LEFT, padx=5)
+        btn_history = tk.Button(frm_btn, text="View History", command=self.show_history)
+        btn_history.pack(side=tk.LEFT, padx=5)
         btn_exit = tk.Button(frm_btn, text="Exit", command=self.root.quit)
         btn_exit.pack(side=tk.RIGHT, padx=5)
 
@@ -225,6 +281,11 @@ class CoordinateCalculatorApp:
         elif self.mode_var.get() == "FIX":
             self.entry_fix_identifier.delete(0, tk.END)
             self.entry_fix_coords.delete(0, tk.END)
+            self.entry_dme_identifier.delete(0, tk.END)
+            self.entry_dme_coords.delete(0, tk.END)
+            self.entry_dme_bearing.delete(0, tk.END)
+            self.entry_dme_distance.delete(0, tk.END)
+            self.entry_dme_declination.delete(0, tk.END)
             self.entry_runway_code.delete(0, tk.END)
             self.entry_fix_airport_code.delete(0, tk.END)
         self.output_entry.config(state=tk.NORMAL) # Make output editable to clear
@@ -300,10 +361,108 @@ class CoordinateCalculatorApp:
         elif mode == "FIX":
             lat, lon, fix_code, usage_code, runway_code, airport_code, operation_code = result
             output = (f"{lat:.9f} {lon:.9f} {usage_code}{fix_code}{int(runway_code):02d} "f"{airport_code} {airport_code[:2]} {operation_code}")
+        
+        # Add to history
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        history_item = {
+            "timestamp": timestamp,
+            "mode": mode,
+            "output": output
+        }
+        self.history.append(history_item)
+        
         self.output_entry.config(state=tk.NORMAL) # Make output editable
         self.output_entry.delete(1.0, tk.END)
         self.output_entry.insert(tk.END, output)
         self.output_entry.config(state=tk.DISABLED) # Set back to readonly
+
+    # New method to display history
+    def show_history(self):
+        if not self.history:
+            messagebox.showinfo("History", "No calculation history available.")
+            return
+            
+        history_window = tk.Toplevel(self.root)
+        history_window.title("Calculation History")
+        history_window.geometry("700x400")
+        
+        # Create frame with scrollbar
+        frame = tk.Frame(history_window)
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        scrollbar = tk.Scrollbar(frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Create treeview to display history
+        columns = ("Time", "Mode", "Output")
+        history_tree = ttk.Treeview(frame, columns=columns, show="headings", yscrollcommand=scrollbar.set)
+        
+        # Configure column widths
+        history_tree.column("Time", width=150, anchor="w")
+        history_tree.column("Mode", width=80, anchor="center")
+        history_tree.column("Output", width=450, anchor="w")
+        
+        # Configure column headings
+        history_tree.heading("Time", text="Time")
+        history_tree.heading("Mode", text="Mode")
+        history_tree.heading("Output", text="Output")
+        
+        # Populate treeview with history items (newest first)
+        for item in reversed(self.history):
+            history_tree.insert("", "end", values=(item["timestamp"], item["mode"], item["output"]))
+        
+        history_tree.pack(side=tk.LEFT, fill="both", expand=True)
+        scrollbar.config(command=history_tree.yview)
+        
+        # Function to use selected history item
+        def use_selected_item():
+            selected_items = history_tree.selection()
+            if not selected_items:
+                messagebox.showinfo("Selection", "Please select a history item.")
+                return
+                
+            item_id = selected_items[0]
+            values = history_tree.item(item_id, "values")
+            if not values or len(values) < 3:
+                return
+                
+            # Populate output with selected history item
+            self.output_entry.config(state=tk.NORMAL)
+            self.output_entry.delete(1.0, tk.END)
+            self.output_entry.insert(tk.END, values[2])  # Output is the third column
+            self.output_entry.config(state=tk.DISABLED)
+            history_window.destroy()
+        
+        # Function to copy selected history item
+        def copy_selected_item():
+            selected_items = history_tree.selection()
+            if not selected_items:
+                messagebox.showinfo("Selection", "Please select a history item.")
+                return
+                
+            item_id = selected_items[0]
+            values = history_tree.item(item_id, "values")
+            if not values or len(values) < 3:
+                return
+                
+            # Copy to clipboard
+            self.root.clipboard_clear()
+            self.root.clipboard_append(values[2])  # Output is the third column
+            messagebox.showinfo("Copy", "Result copied to clipboard!")
+        
+        # Buttons frame
+        btn_frame = tk.Frame(history_window)
+        btn_frame.pack(fill="x", padx=10, pady=5)
+        
+        # Create buttons
+        btn_use = tk.Button(btn_frame, text="Use Selected", command=use_selected_item)
+        btn_use.pack(side=tk.LEFT, padx=5)
+        
+        btn_copy = tk.Button(btn_frame, text="Copy Selected", command=copy_selected_item)
+        btn_copy.pack(side=tk.LEFT, padx=5)
+        
+        btn_close = tk.Button(btn_frame, text="Close", command=history_window.destroy)
+        btn_close.pack(side=tk.RIGHT, padx=5)
 
     def search_waypoint_coords(self):
         identifier = self.entry_waypoint_identifier.get().strip().upper()
@@ -573,6 +732,217 @@ class CoordinateCalculatorApp:
             self.process_output(result, "FIX")
         except ValueError as e:
             messagebox.showerror("Input Error", f"FIX mode input error: {e}")
+
+    # DME Search function
+    def search_dme_coords(self):
+        identifier = self.entry_dme_identifier.get().strip().upper()
+        if not identifier:
+            messagebox.showerror("Input Error", "Please enter a DME identifier.")
+            return
+
+        # Always search in NAV file for DME
+        file_path = self.nav_file_path
+        if not file_path:
+            messagebox.showerror("File Error", "Please select a NAV data file.")
+            return
+
+        try:
+            with open(file_path, 'r') as file:
+                matching_lines = []
+                for line in file:
+                    parts = line.strip().split()
+                    if len(parts) > 7 and parts[7] == identifier:
+                        # Check if it's a DME (type code 12 or 13)
+                        if parts[0] in ['12', '13']:
+                            matching_lines.append(parts)
+
+            if not matching_lines:
+                messagebox.showinfo("Not Found", f"DME identifier '{identifier}' not found.")
+                return
+
+            if len(matching_lines) > 1:
+                # Handle multiple DMEs with same identifier
+                self.handle_dme_duplicates(matching_lines)
+            else:
+                self.set_dme_coords(matching_lines[0])
+
+        except FileNotFoundError:
+            messagebox.showerror("File Error", f"File not found: {file_path}")
+        except Exception as e:
+            messagebox.showerror("File Read Error", f"Error reading NAV file: {e}")
+
+    def handle_dme_duplicates(self, matching_lines):
+        choice_window = tk.Toplevel(self.root)
+        choice_window.title("Choose DME")
+        tk.Label(choice_window, text="Multiple DMEs found. Please choose one:").pack()
+        selected_line = tk.StringVar()
+
+        for line_parts in matching_lines:
+            type_str = "DME (VOR)" if line_parts[0] == '12' else "DME"
+            display_text = f"{type_str} - {line_parts[7]}"
+            
+            if len(line_parts) > 9:
+                display_text += f" - {line_parts[9]}"
+            else:
+                display_text += " - [Location missing]"
+                
+            rb = tk.Radiobutton(choice_window, text=display_text, variable=selected_line, value=",".join(line_parts))
+            rb.pack()
+
+        def confirm_choice():
+            chosen_line = selected_line.get()
+            if chosen_line:
+                self.set_dme_coords(chosen_line.split(","))
+                choice_window.destroy()
+            else:
+                messagebox.showwarning("Selection Required", "Please select a DME.")
+                
+        btn_confirm = tk.Button(choice_window, text="Confirm", command=confirm_choice)
+        btn_confirm.pack()
+        choice_window.wait_window()
+
+    def set_dme_coords(self, line_parts):
+        try:
+            # NAV file: lat/lon are 2nd and 3rd
+            lat = float(line_parts[1])
+            lon = float(line_parts[2])
+            self.entry_dme_coords.delete(0, tk.END)
+            self.entry_dme_coords.insert(0, f"{lat} {lon}")
+        except (ValueError, IndexError):
+            messagebox.showerror("Data Error", "Invalid coordinate data in the selected DME.")
+
+    def calculate_from_dme(self):
+        # Validate input
+        try:
+            # Get FIX coordinates
+            fix_coords_str = self.entry_fix_coords.get().strip()
+            if not fix_coords_str:
+                messagebox.showerror("Input Error", "Please enter or search for FIX coordinates first.")
+                return
+            
+            lat_fix, lon_fix = map(float, fix_coords_str.split())
+            if not (-90 <= lat_fix <= 90 and -180 <= lon_fix <= 180):
+                raise ValueError("FIX Latitude/Longitude out of range (±90 / ±180)")
+            
+            # Get DME coordinates
+            dme_coords_str = self.entry_dme_coords.get().strip()
+            if not dme_coords_str:
+                messagebox.showerror("Input Error", "Please search for or enter DME coordinates.")
+                return
+            
+            lat_dme, lon_dme = map(float, dme_coords_str.split())
+            if not (-90 <= lat_dme <= 90 and -180 <= lon_dme <= 180):
+                raise ValueError("DME Latitude/Longitude out of range (±90 / ±180)")
+            
+            # Get magnetic bearing FROM the FIX (radial)
+            magnetic_bearing = float(self.entry_dme_bearing.get())
+            if not (0 <= magnetic_bearing < 360):
+                raise ValueError("Magnetic bearing should be within 0-359 degrees")
+                
+            # Get distance 
+            distance_nm = float(self.entry_dme_distance.get())
+            if distance_nm <= 0:
+                raise ValueError("Distance should be greater than 0 nautical miles")
+                
+            # Get declination
+            declination = float(self.entry_dme_declination.get())
+            
+            # Calculate true bearing from FIX
+            true_bearing = (magnetic_bearing + declination) % 360
+            
+            # Get distance reference
+            distance_reference = self.distance_reference.get()
+            
+            # Find intersection point based on selected reference
+            if distance_reference == "DME":
+                # Find where radial from FIX intersects with circle around DME
+                intersection_point = self.find_radial_distance_intersection(
+                    lat_fix, lon_fix, true_bearing, 
+                    lat_dme, lon_dme, distance_nm
+                )
+                reference_point = "DME"
+            else:  # FIX
+                # Calculate target point directly from FIX at bearing and distance
+                result = GEODESIC.Direct(lat_fix, lon_fix, true_bearing, distance_nm * 1852)
+                intersection_point = {
+                    'lat': result['lat2'],
+                    'lon': result['lon2']
+                }
+                reference_point = "FIX"
+            
+            # Update FIX coordinates with the intersection point
+            self.entry_fix_coords.delete(0, tk.END)
+            self.entry_fix_coords.insert(0, f"{intersection_point['lat']:.9f} {intersection_point['lon']:.9f}")
+            
+            if distance_reference == "DME":
+                message = f"Intersection found: FIX radial {magnetic_bearing:.1f}° intersects with {distance_nm:.2f} NM from DME."
+            else:
+                message = f"Point calculated at {magnetic_bearing:.1f}° and {distance_nm:.2f} NM from FIX."
+            
+            messagebox.showinfo("Calculation Complete", 
+                                f"{message}\n"
+                                f"Coordinates have been set in the FIX field.")
+            
+        except ValueError as e:
+            messagebox.showerror("Input Error", f"Calculation error: {e}")
+        except Exception as e:
+            messagebox.showerror("Calculation Error", f"Error during calculation: {str(e)}")
+
+    def find_radial_distance_intersection(self, lat_fix, lon_fix, true_bearing, lat_dme, lon_dme, distance_nm):
+        """Find where a radial from FIX intersects with a distance circle from DME."""
+        # Calculate distance between FIX and DME
+        fix_dme_result = GEODESIC.Inverse(lat_fix, lon_fix, lat_dme, lon_dme)
+        fix_dme_distance_m = fix_dme_result['s12']  # Distance in meters
+        fix_dme_distance_nm = fix_dme_distance_m / 1852  # Convert to nautical miles
+        
+        # Determine search range
+        # Start with 0 to 2*distance_nm from FIX along the radial
+        min_dist = 0
+        max_dist = max(100, 2 * distance_nm + fix_dme_distance_nm)  # Ensure adequate search range
+        
+        # Binary search to find the intersection
+        intersection_found = False
+        test_dist = 0
+        lat_target = lon_target = 0
+        
+        # Maximum iterations to prevent infinite loop
+        max_iterations = 30
+        iteration = 0
+        
+        while iteration < max_iterations:
+            iteration += 1
+            
+            # Try a point at test_dist along the radial from FIX
+            test_dist = (min_dist + max_dist) / 2
+            test_point = GEODESIC.Direct(lat_fix, lon_fix, true_bearing, test_dist * 1852)
+            lat_test = test_point['lat2']
+            lon_test = test_point['lon2']
+            
+            # Calculate distance from this test point to DME
+            test_to_dme = GEODESIC.Inverse(lat_test, lon_test, lat_dme, lon_dme)
+            test_to_dme_nm = test_to_dme['s12'] / 1852
+            
+            # Check if we're close enough to the target distance
+            if abs(test_to_dme_nm - distance_nm) < 0.0001:  # Precision threshold
+                intersection_found = True
+                lat_target = lat_test
+                lon_target = lon_test
+                break
+            
+            # Adjust search range
+            if test_to_dme_nm > distance_nm:
+                # Test point is too far from DME
+                max_dist = test_dist
+            else:
+                # Test point is too close to DME
+                min_dist = test_dist
+        
+        if not intersection_found:
+            # Use the best approximation
+            lat_target = lat_test
+            lon_target = lon_test
+        
+        return {'lat': lat_target, 'lon': lon_target}
 
 if __name__ == "__main__":
     root = tk.Tk()
