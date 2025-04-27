@@ -5,11 +5,16 @@ import math
 import os
 import datetime
 
-# Constants for the Earth's ellipsoid model
-GEODESIC = Geodesic.WGS84
+# Constants for the Earth's ellipsoid model - optimized for maximum accuracy
+# Use 8th order series expansion (max accuracy) with all calculation capabilities
+GEODESIC = Geodesic.WGS84.Init(order=8, caps=Geodesic.ALL)
+
+# Precision settings for intersection calculations
+MAX_ITERATIONS = 50  # Increased max iterations for better convergence
+DISTANCE_TOLERANCE_NM = 0.00001  # 0.01 meters tolerance for distance calculations
 
 def calculate_target_coords_geodesic(lat1, lon1, azimuth, distance_nm):
-    """Calculates the target coordinates."""
+    """Calculates the target coordinates with high precision."""
     distance = distance_nm * 1852  # Convert nautical miles to meters
     result = GEODESIC.Direct(lat1, lon1, azimuth, distance)
     return result['lat2'], result['lon2']
@@ -853,6 +858,9 @@ class CoordinateCalculatorApp:
             # Get distance reference
             distance_reference = self.distance_reference.get()
             
+            # Start timing the calculation
+            start_time = datetime.datetime.now()
+            
             # Find intersection point based on selected reference
             if distance_reference == "DME":
                 # Find where radial from FIX intersects with circle around DME
@@ -861,6 +869,27 @@ class CoordinateCalculatorApp:
                     lat_dme, lon_dme, distance_nm
                 )
                 reference_point = "DME"
+                
+                # Verify solution accuracy
+                verification = GEODESIC.Inverse(
+                    intersection_point['lat'], intersection_point['lon'], 
+                    lat_dme, lon_dme
+                )
+                actual_distance_nm = verification['s12'] / 1852
+                accuracy_error_nm = abs(actual_distance_nm - distance_nm)
+                
+                # Calculate radial accuracy
+                radial_verification = GEODESIC.Inverse(
+                    lat_fix, lon_fix,
+                    intersection_point['lat'], intersection_point['lon']
+                )
+                actual_bearing = radial_verification['azi1']
+                if actual_bearing < 0:
+                    actual_bearing += 360
+                actual_mag_bearing = (actual_bearing - declination) % 360
+                bearing_error = abs(magnetic_bearing - actual_mag_bearing)
+                if bearing_error > 180:
+                    bearing_error = 360 - bearing_error
             else:  # FIX
                 # Calculate target point directly from FIX at bearing and distance
                 result = GEODESIC.Direct(lat_fix, lon_fix, true_bearing, distance_nm * 1852)
@@ -869,19 +898,31 @@ class CoordinateCalculatorApp:
                     'lon': result['lon2']
                 }
                 reference_point = "FIX"
+                
+                # For direct calculation, error is essentially zero
+                accuracy_error_nm = 0
+                bearing_error = 0
+                actual_distance_nm = distance_nm
+            
+            # Calculate elapsed time
+            end_time = datetime.datetime.now()
+            elapsed_ms = (end_time - start_time).total_seconds() * 1000
             
             # Update FIX coordinates with the intersection point
             self.entry_fix_coords.delete(0, tk.END)
             self.entry_fix_coords.insert(0, f"{intersection_point['lat']:.9f} {intersection_point['lon']:.9f}")
             
             if distance_reference == "DME":
-                message = f"Intersection found: FIX radial {magnetic_bearing:.1f}° intersects with {distance_nm:.2f} NM from DME."
+                message = (f"Intersection found: FIX radial {magnetic_bearing:.2f}° intersects with {distance_nm:.3f} NM from DME.\n"
+                           f"Precision: Distance error {accuracy_error_nm:.6f} NM, Bearing error {bearing_error:.6f}°\n"
+                           f"Actual DME distance: {actual_distance_nm:.6f} NM")
             else:
-                message = f"Point calculated at {magnetic_bearing:.1f}° and {distance_nm:.2f} NM from FIX."
+                message = f"Point calculated at {magnetic_bearing:.2f}° and {distance_nm:.3f} NM from FIX."
             
             messagebox.showinfo("Calculation Complete", 
                                 f"{message}\n"
-                                f"Coordinates have been set in the FIX field.")
+                                f"Coordinates have been set in the FIX field.\n"
+                                f"Calculation time: {elapsed_ms:.2f} ms")
             
         except ValueError as e:
             messagebox.showerror("Input Error", f"Calculation error: {e}")
@@ -889,27 +930,33 @@ class CoordinateCalculatorApp:
             messagebox.showerror("Calculation Error", f"Error during calculation: {str(e)}")
 
     def find_radial_distance_intersection(self, lat_fix, lon_fix, true_bearing, lat_dme, lon_dme, distance_nm):
-        """Find where a radial from FIX intersects with a distance circle from DME."""
-        # Calculate distance between FIX and DME
+        """Find where a radial from FIX intersects with a distance circle from DME using high-precision calculations."""
+        # Calculate distance between FIX and DME with high-precision geodesic
         fix_dme_result = GEODESIC.Inverse(lat_fix, lon_fix, lat_dme, lon_dme)
         fix_dme_distance_m = fix_dme_result['s12']  # Distance in meters
         fix_dme_distance_nm = fix_dme_distance_m / 1852  # Convert to nautical miles
         
-        # Determine search range
-        # Start with 0 to 2*distance_nm from FIX along the radial
-        min_dist = 0
-        max_dist = max(100, 2 * distance_nm + fix_dme_distance_nm)  # Ensure adequate search range
+        # Special case for very short distances: use more precise handling
+        if distance_nm < 0.1:  # Less than 185 meters
+            # For very short distances, use more refined initial search
+            min_dist = 0
+            max_dist = max(0.5, distance_nm * 2)
+        else:
+            # Determine search range based on the triangle formed
+            min_dist = 0
+            max_dist = max(100, 2 * distance_nm + fix_dme_distance_nm)  # Ensure adequate search range
         
-        # Binary search to find the intersection
+        # Binary search to find the intersection with higher precision
         intersection_found = False
         test_dist = 0
         lat_target = lon_target = 0
+        best_approx_distance = float('inf')
+        best_approx_point = None
         
-        # Maximum iterations to prevent infinite loop
-        max_iterations = 30
+        # Use increased max iterations for better precision
         iteration = 0
         
-        while iteration < max_iterations:
+        while iteration < MAX_ITERATIONS:
             iteration += 1
             
             # Try a point at test_dist along the radial from FIX
@@ -918,12 +965,18 @@ class CoordinateCalculatorApp:
             lat_test = test_point['lat2']
             lon_test = test_point['lon2']
             
-            # Calculate distance from this test point to DME
+            # Calculate distance from this test point to DME with high precision
             test_to_dme = GEODESIC.Inverse(lat_test, lon_test, lat_dme, lon_dme)
             test_to_dme_nm = test_to_dme['s12'] / 1852
             
+            # Track the best approximation seen so far
+            error = abs(test_to_dme_nm - distance_nm)
+            if error < best_approx_distance:
+                best_approx_distance = error
+                best_approx_point = {'lat': lat_test, 'lon': lon_test}
+            
             # Check if we're close enough to the target distance
-            if abs(test_to_dme_nm - distance_nm) < 0.0001:  # Precision threshold
+            if error < DISTANCE_TOLERANCE_NM:  # Tighter precision threshold
                 intersection_found = True
                 lat_target = lat_test
                 lon_target = lon_test
@@ -936,11 +989,15 @@ class CoordinateCalculatorApp:
             else:
                 # Test point is too close to DME
                 min_dist = test_dist
+            
+            # Additional stopping condition for very small search intervals
+            if (max_dist - min_dist) < 0.00001:  # Stop if range becomes too small
+                break
         
         if not intersection_found:
-            # Use the best approximation
-            lat_target = lat_test
-            lon_target = lon_test
+            # Use the best approximation if exact solution not found
+            lat_target = best_approx_point['lat']
+            lon_target = best_approx_point['lon']
         
         return {'lat': lat_target, 'lon': lon_target}
 
