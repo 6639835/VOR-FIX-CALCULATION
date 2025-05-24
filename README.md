@@ -1,125 +1,201 @@
-# VOR-FIX-CALCULATION: Your Ultimate Aviation Coordinate Tool! ✈️ 🌍
+# VOR FIX Coordinate Calculator
 
-[![Python](https://img.shields.io/badge/Python-3.x-blue.svg)](https://www.python.org/)  [![Tkinter](https://img.shields.io/badge/Tkinter-GUI-brightgreen.svg)](https://docs.python.org/3/library/tkinter.html)  [![geographiclib](https://img.shields.io/badge/geographiclib-Dependency-yellow.svg)](https://pypi.org/project/geographiclib/)  [![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)  [![GitHub Stars](https://img.shields.io/github/stars/6639835/VOR-FIX-CALCULATION?style=social)](https://github.com/6639835/VOR-FIX-CALCULATION)
+A professional aviation coordinate calculation application for determining waypoint and FIX coordinates using VOR, DME, and NDB navigation aids.
 
-Calculate aviation navigation coordinates with ease! This project provides a powerful and user-friendly coordinate calculation tool built with Python and Tkinter. Whether you're a flight simmer, aviation enthusiast, or developer, this tool will help you determine accurate waypoint and FIX locations.
+## Features
 
-**Unlock the Power of Precise Navigation!**
+### Core Functionality
+- **Waypoint Calculations**: Calculate coordinates from VOR/DME/NDB stations using bearing and distance
+- **FIX Calculations**: Calculate FIX coordinates with DME intersection calculations
+- **High-Precision Geodesic**: Ultra-precise calculations using WGS84 ellipsoid model
+- **Magnetic Declination**: Automatic or manual magnetic declination handling
+- **File Search**: Search navigation data files for station coordinates
+- **History Management**: Track and reuse previous calculations
 
----
+### Navigation Support
+- **VOR (VHF Omnidirectional Range)**: Standard VOR navigation
+- **DME (Distance Measuring Equipment)**: Precision distance measurements
+- **NDB (Non-Directional Beacon)**: Traditional beacon navigation
+- **Mixed Operations**: VOR/DME and NDB/DME combinations
 
-## 🌟 Key Features
+### Calculation Modes
+- **Magnetic/True Bearings**: Support for both magnetic and true bearings
+- **Auto Declination**: Automatic magnetic declination calculation using pygeomag
+- **Intersection Calculations**: Radial-distance intersection finding
+- **Multiple Distance References**: DME or FIX-based distance calculations
 
-*   **Dual Calculation Modes:**
-    *   **WAYPOINT Mode:** Calculate waypoint coordinates using VOR/DME/NDB data, magnetic bearing, distance, and magnetic declination.
-    *   **FIX Mode:** Determine FIX coordinates with detailed parameters like type, usage, runway encoding, and airport code.
-*   **Intuitive GUI:** A clean and easy-to-use graphical interface built with Tkinter. No command-line wizardry needed!
-*   **Error Validation:** Prevents incorrect calculations by validating your inputs.
-*   **Clipboard Integration:** Copy calculated results directly to your clipboard for seamless integration with other applications.
-*   **One-Click Reset:** Quickly clear input fields with the "Clear" button.
-*   **Cross-Platform Compatibility:** Runs on any operating system that supports Python and Tkinter (Windows, macOS, Linux).
-*   **Open Source:** Licensed under the MIT License, allowing for free use, modification, and distribution.
+## Installation
 
----
+### Prerequisites
+- Python 3.7+
+- tkinter (usually included with Python)
+- Required Python packages:
 
-## 💡 How It Works
+```bash
+pip install geographiclib pygeomag
+```
 
-The Coordinate Calculator is a Python-based GUI application that assists with calculating navigation coordinates using two distinct modes:
+### Optional Dependencies
+- **pygeomag**: For automatic magnetic declination calculation (recommended)
 
-*   **WAYPOINT Mode:** Uses VOR/DME/NDB coordinates, magnetic bearing, distance, and magnetic declination to compute a target coordinate. This is ideal for determining the location of a new waypoint based on existing navigation aids.
-*   **FIX Mode:** Uses FIX coordinates along with type, usage, runway encoding, and airport code to generate a specific output string. This is useful for creating or modifying FIX definitions in navigation databases.
+## Usage
 
----
+### Starting the Application
+```bash
+python vor_fix_calculation.py
+```
 
-## ✅ Requirements
+### File Setup
+1. Select NAV and FIX data files using the "Browse" buttons
+2. Files should be in standard X-Plane format with space-separated values
 
-*   Python 3.x (Recommended Python 3.7 or above) - Download from [https://www.python.org/downloads/](https://www.python.org/downloads/)
-*   Tkinter (usually comes pre-installed with Python)
-*   [geographiclib](https://pypi.org/project/geographiclib/) - For accurate geographic calculations.
+### Waypoint Mode
+1. Select "WAYPOINT" mode
+2. Either:
+   - Enter a VOR/DME/NDB identifier and click "Search Coordinates"
+   - Manually enter coordinates in "Lat Lon" format
+3. Choose bearing mode (Magnetic/True)
+4. Enter bearing in degrees (0-359)
+5. Enter distance in nautical miles
+6. Fill in airport code and VOR identifier
+7. Click "Calculate Waypoint"
 
----
+### FIX Mode
+1. Select "FIX" mode
+2. Enter FIX identifier or coordinates
+3. For DME calculations:
+   - Enter DME identifier or coordinates
+   - Set bearing and distance
+   - Choose distance reference (DME/FIX)
+   - Click "Calculate Intersection"
+4. Fill in FIX details (type, usage, runway, airport)
+5. Click "Calculate FIX"
 
-## 🛠️ Installation
+## Architecture
 
-1.  **Clone the Repository:**
+### Improved Code Structure
+The application has been completely refactored from a monolithic ~1400-line class into a modular, maintainable architecture:
 
-    ```bash
-    git clone https://github.com/6639835/VOR-FIX-CALCULATION.git
-    cd VOR-FIX-CALCULATION
-    ```
+#### Core Services
+- **`MagneticDeclinationService`**: Handles magnetic declination calculations
+- **`CoordinateCalculator`**: High-precision geodesic calculations
+- **`NavigationDataService`**: File reading and identifier searching
+- **`InputValidator`**: Robust input validation with clear error messages
 
-2.  **Install Dependencies:**
+#### UI Components
+- **`FileSelectionFrame`**: File browsing and selection
+- **`BaseCalculationFrame`**: Common functionality for calculation frames
+- **`WaypointCalculationFrame`**: Waypoint-specific UI and logic
+- **`FixCalculationFrame`**: FIX-specific UI and logic
 
-    If you have a `requirements.txt` file:
+#### Data Models
+- **`Coordinates`**: Type-safe coordinate representation with validation
+- **`CalculationResult`**: Structured calculation results
+- **Enums**: Type-safe constants for modes, file types, etc.
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+### Key Improvements
 
-    Otherwise, manually install geographiclib:
+#### 1. **Separation of Concerns**
+- Business logic separated from UI code
+- Service classes handle specific responsibilities
+- Clean interfaces between components
 
-    ```bash
-    pip install geographiclib
-    ```
+#### 2. **Type Safety**
+- Comprehensive type hints throughout the codebase
+- Dataclasses for structured data
+- Enums for constants and modes
 
-    If Tkinter is missing (rare), install it using your system's package manager. For example, on Ubuntu:
+#### 3. **Error Handling**
+- Robust input validation with specific error messages
+- Graceful handling of file operations
+- Clear user feedback for all error conditions
 
-    ```bash
-    sudo apt-get install python3-tk
-    ```
+#### 4. **Code Reusability**
+- Base classes for common functionality
+- Shared services across UI components
+- Consistent patterns throughout the application
 
----
+#### 5. **Maintainability**
+- Smaller, focused classes and methods
+- Clear naming conventions
+- Comprehensive documentation
+- Reduced code duplication
 
-## 🚀 Usage
+## Technical Details
 
-1.  **Run the Application:**
+### Precision
+- **Distance Tolerance**: 1 meter precision for intersection calculations
+- **Angular Tolerance**: 0.0001 degrees (about 0.36 arcseconds)
+- **Coordinate Precision**: 9 decimal places (sub-meter accuracy)
+- **Iterative Refinement**: Up to 200 iterations for complex calculations
 
-    ```bash
-    python "VOR FIX CALCULATION.py"
-    ```
+### Geodesic Calculations
+- Uses GeographicLib for maximum precision
+- WGS84 ellipsoid model
+- Multi-step calculations for very long distances
+- Verification and error checking for all calculations
 
-    (Make sure the filename matches your local copy.)
+### File Format Support
+- **NAV Files**: X-Plane navigation data format
+- **FIX Files**: X-Plane fix data format
+- Automatic parsing and coordinate extraction
+- Duplicate handling with user selection
 
-2.  **Using the Tool:**
+## Output Formats
 
-    *   Select the desired mode (WAYPOINT or FIX) from the dropdown menu.
-    *   Enter the required parameters into the input fields.  The GUI provides helpful labels.
-    *   Click the "Calculate" button.
-    *   The results will appear in the output area.  Use the "Copy to Clipboard" button to easily transfer the results to other applications.
+### Waypoint Output
+- Short distance (≤26.5 NM): `D{bearing}{radius_letter} {airport_code}`
+- Long distance (>26.5 NM): `{vor_id}{distance} {airport_code}`
+- Includes operation codes for departure/arrival/approach
 
----
+### FIX Output
+- Format: `{usage_code}{fix_code}{runway:02d} {airport_code} {operation_code}`
+- Supports all standard FIX types and usage codes
 
-## 📁 Project Structure
+## History and Workflow
 
-*   `VOR FIX CALCULATION.py`: The main Python file containing the GUI code and calculation logic.
-*   `LICENSE`: The MIT License file.
+### Calculation History
+- Automatic tracking of all calculations
+- Sortable history view with timestamps
+- Copy/reuse previous calculations
+- Clear history functionality
 
----
+### Workflow Features
+- Auto-search coordinates from identifiers
+- Auto-update magnetic declination
+- Copy results to clipboard
+- Clear form functionality
 
-## 🐛 Common Issues & Solutions
+## Dependencies
 
-1.  **Tkinter Not Installed:**
+### Required
+- **geographiclib**: High-precision geodesic calculations
+- **tkinter**: GUI framework (standard library)
 
-    *   Error message related to `_tkinter` or `TkVersion`?  Install Tkinter using your system's package manager (e.g., `sudo apt-get install python3-tk` on Ubuntu).
+### Optional
+- **pygeomag**: Automatic magnetic declination calculation
+  - Falls back to manual entry if not available
+  - Supports both high and standard resolution models
 
-2.  **geographiclib Not Found:**
+## License
 
-    *   Error message indicating that `geographiclib` is missing? Run `pip install geographiclib`.
+This software is provided as-is for aviation planning and educational purposes. Verify all calculations independently before use in actual navigation.
 
----
+## Contributing
 
-## 🤝 Contributing
+When contributing to this project:
+1. Follow the established architecture patterns
+2. Add type hints to all new code
+3. Include comprehensive error handling
+4. Write clear docstrings
+5. Maintain the separation of concerns
 
-Contributions are welcome! If you find a bug, have a feature request, or want to contribute code, please open an issue or submit a pull request.
+## Changelog
 
-[![RepoBeats](https://repobeats.axiom.co/api/embed/99ff823a402aefae830d6336bca425e24b8df416.svg)](https://repobeats.axiom.co/)
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-**Happy Calculating!  Let's make aviation navigation easier together!**
+### Version 2.0 (Refactored)
+- **Complete Architecture Overhaul**: Modular design with service classes
+- **Type Safety**: Full type hints and dataclass models
+- **Improved Error Handling**: Comprehensive validation and user feedback
+- **Enhanced UI**: Better organization and user experience
+- **Code Quality**: Reduced complexity and improved maintainability
+- **New Features**: Enhanced history management and workflow improvements
