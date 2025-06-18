@@ -18,8 +18,16 @@ DISTANCE_TOLERANCE_NM = 0.00000054  # About 1 meter in nautical miles (1/1852)
 DISTANCE_TOLERANCE_M = 1.0  # Tolerance in meters (1-meter precision)
 ANGLE_TOLERANCE_DEG = 0.0001  # Extremely precise angular tolerance (about 0.36 arcseconds)
 
-# Meters per nautical mile, defined exactly
+# Meters per nautical mile, defined exactly (constant should never be modified)
 METERS_PER_NM = 1852.0
+
+def _validate_constants():
+    """Validate critical constants to prevent division by zero errors."""
+    if METERS_PER_NM <= 0:
+        raise ValueError("METERS_PER_NM constant must be positive")
+
+# Validate constants on import
+_validate_constants()
 
 # Operation codes
 OPERATION_CODES = {
@@ -83,8 +91,8 @@ class Coordinates:
     def __post_init__(self):
         if not (-90 <= self.lat <= 90):
             raise ValueError(f"Latitude {self.lat} out of range (±90)")
-        if not (-180 <= self.lon <= 180):
-            raise ValueError(f"Longitude {self.lon} out of range (±180)")
+        if not (-180 < self.lon <= 180):
+            raise ValueError(f"Longitude {self.lon} out of range (-180, 180]")
     
     def __str__(self) -> str:
         return f"{self.lat:.9f} {self.lon:.9f}"
@@ -200,17 +208,20 @@ class CoordinateCalculator:
     def get_radius_letter(distance_nm: float) -> str:
         """Get the single-letter radius designator."""
         ranges = [
-            (0.1, 1.4, 'A'), (1.5, 2.4, 'B'), (2.5, 3.4, 'C'), (3.5, 4.4, 'D'),
-            (4.5, 5.4, 'E'), (5.5, 6.4, 'F'), (6.5, 7.4, 'G'), (7.5, 8.4, 'H'),
-            (8.5, 9.4, 'I'), (9.5, 10.4, 'J'), (10.5, 11.4, 'K'), (11.5, 12.4, 'L'),
-            (12.5, 13.4, 'M'), (13.5, 14.4, 'N'), (14.5, 15.4, 'O'), (15.5, 16.4, 'P'),
-            (16.5, 17.4, 'Q'), (17.5, 18.4, 'R'), (18.5, 19.4, 'S'), (19.5, 20.4, 'T'),
-            (20.5, 21.4, 'U'), (21.5, 22.4, 'V'), (22.5, 23.4, 'W'), (23.5, 24.4, 'X'),
-            (24.5, 25.4, 'Y'), (25.5, 26.4, 'Z')
+            (0.1, 1.5, 'A'), (1.5, 2.5, 'B'), (2.5, 3.5, 'C'), (3.5, 4.5, 'D'),
+            (4.5, 5.5, 'E'), (5.5, 6.5, 'F'), (6.5, 7.5, 'G'), (7.5, 8.5, 'H'),
+            (8.5, 9.5, 'I'), (9.5, 10.5, 'J'), (10.5, 11.5, 'K'), (11.5, 12.5, 'L'),
+            (12.5, 13.5, 'M'), (13.5, 14.5, 'N'), (14.5, 15.5, 'O'), (15.5, 16.5, 'P'),
+            (16.5, 17.5, 'Q'), (17.5, 18.5, 'R'), (18.5, 19.5, 'S'), (19.5, 20.5, 'T'),
+            (20.5, 21.5, 'U'), (21.5, 22.5, 'V'), (22.5, 23.5, 'W'), (23.5, 24.5, 'X'),
+            (24.5, 25.5, 'Y'), (25.5, 26.5, 'Z')
         ]
         for low, high, letter in ranges:
-            if low <= distance_nm <= high:
+            if low <= distance_nm < high:
                 return letter
+        # Handle edge cases
+        if distance_nm < 0.1:
+            return 'A'
         return 'Z'
 
 class NavigationDataService:
@@ -265,11 +276,17 @@ class InputValidator:
         if not coords_str.strip():
             raise ValueError("Coordinates cannot be empty")
         
+        parts = coords_str.strip().split()
+        if len(parts) != 2:
+            raise ValueError("Coordinates must contain exactly two numbers: latitude and longitude")
+        
         try:
-            lat, lon = map(float, coords_str.split())
+            lat, lon = map(float, parts)
             return Coordinates(lat, lon)
-        except ValueError:
-            raise ValueError("Invalid coordinate format. Use 'latitude longitude'")
+        except ValueError as e:
+            if "could not convert" in str(e):
+                raise ValueError("Coordinates must be valid numbers")
+            raise ValueError(f"Invalid coordinate format: {str(e)}")
     
     @staticmethod
     def validate_bearing(bearing_str: str) -> float:
@@ -348,33 +365,36 @@ class FileSelectionFrame:
     
     def _create_widgets(self):
         """Create the file selection widgets."""
+        # Configure grid columns
+        self.frame.columnconfigure(1, weight=1)
+        
         # FIX File Selection
-        tk.Label(self.frame, text="FIX File:", width=8, anchor="w").pack(
-            side=tk.LEFT, padx=5
+        tk.Label(self.frame, text="FIX File:", width=8, anchor="w").grid(
+            row=0, column=0, padx=5, pady=2, sticky="w"
         )
         self.entry_fix_file = tk.Entry(self.frame, width=40)
-        self.entry_fix_file.pack(side=tk.LEFT, padx=5, fill="x", expand=True)
+        self.entry_fix_file.grid(row=0, column=1, padx=5, pady=2, sticky="ew")
         
         btn_browse_fix = tk.Button(
             self.frame, 
             text="Browse", 
             command=lambda: self._browse_file(FileType.FIX)
         )
-        btn_browse_fix.pack(side=tk.LEFT, padx=5)
+        btn_browse_fix.grid(row=0, column=2, padx=5, pady=2)
 
         # NAV File Selection
-        tk.Label(self.frame, text="NAV File:", width=8, anchor="w").pack(
-            side=tk.LEFT, padx=5
+        tk.Label(self.frame, text="NAV File:", width=8, anchor="w").grid(
+            row=1, column=0, padx=5, pady=2, sticky="w"
         )
         self.entry_nav_file = tk.Entry(self.frame, width=40)
-        self.entry_nav_file.pack(side=tk.LEFT, padx=5, fill="x", expand=True)
+        self.entry_nav_file.grid(row=1, column=1, padx=5, pady=2, sticky="ew")
         
         btn_browse_nav = tk.Button(
             self.frame, 
             text="Browse", 
             command=lambda: self._browse_file(FileType.NAV)
         )
-        btn_browse_nav.pack(side=tk.LEFT, padx=5)
+        btn_browse_nav.grid(row=1, column=2, padx=5, pady=2)
     
     def _browse_file(self, file_type: FileType):
         """Browse for a file of the specified type."""
@@ -722,12 +742,16 @@ class WaypointCalculationFrame(BaseCalculationFrame):
             lat_index = 1 if file_type == FileType.NAV else 0
             lon_index = 2 if file_type == FileType.NAV else 1
             
+            # Check if we have enough data
+            if len(line_parts) <= max(lat_index, lon_index):
+                raise IndexError("Insufficient coordinate data in file entry")
+            
             coordinates = Coordinates(float(line_parts[lat_index]), float(line_parts[lon_index]))
             self.entry_coords.delete(0, tk.END)
             self.entry_coords.insert(0, str(coordinates))
             
-        except (ValueError, IndexError):
-            messagebox.showerror("Data Error", "Invalid coordinate data in the selected file.")
+        except (ValueError, IndexError) as e:
+            messagebox.showerror("Data Error", f"Invalid coordinate data in the selected file: {str(e)}")
     
     def update_declination(self):
         """Update auto declination from coordinates."""
@@ -1161,21 +1185,29 @@ class FixCalculationFrame(BaseCalculationFrame):
             lat_index = 0 if file_type == FileType.FIX else 1
             lon_index = 1 if file_type == FileType.FIX else 2
             
+            # Check if we have enough data
+            if len(line_parts) <= max(lat_index, lon_index):
+                raise IndexError("Insufficient coordinate data in file entry")
+            
             coordinates = Coordinates(float(line_parts[lat_index]), float(line_parts[lon_index]))
             self.entry_fix_coords.delete(0, tk.END)
             self.entry_fix_coords.insert(0, str(coordinates))
             
-        except (ValueError, IndexError):
-            messagebox.showerror("Data Error", "Invalid coordinate data in the selected file.")
+        except (ValueError, IndexError) as e:
+            messagebox.showerror("Data Error", f"Invalid coordinate data in the selected file: {str(e)}")
     
     def _set_dme_coords(self, line_parts: List[str]):
         """Set DME coordinates from search results."""
         try:
+            # Check if we have enough data (need at least 3 elements for indices 1 and 2)
+            if len(line_parts) < 3:
+                raise IndexError("Insufficient coordinate data in DME entry")
+            
             coordinates = Coordinates(float(line_parts[1]), float(line_parts[2]))
             self.entry_dme_coords.delete(0, tk.END)
             self.entry_dme_coords.insert(0, str(coordinates))
-        except (ValueError, IndexError):
-            messagebox.showerror("Data Error", "Invalid coordinate data in the selected DME.")
+        except (ValueError, IndexError) as e:
+            messagebox.showerror("Data Error", f"Invalid coordinate data in the selected DME: {str(e)}")
     
     def update_dme_declination(self):
         """Update auto declination from DME coordinates."""
@@ -1247,10 +1279,13 @@ class FixCalculationFrame(BaseCalculationFrame):
                 accuracy_error_nm = abs(actual_distance_nm - distance_nm)
             else:
                 # Calculate directly from FIX
-                intersection_point = self.calculator.calculate_target_coords_geodesic(
-                    fix_coords, true_bearing, distance_nm
-                )
-                accuracy_error_nm = 0
+                try:
+                    intersection_point = self.calculator.calculate_target_coords_geodesic(
+                        fix_coords, true_bearing, distance_nm
+                    )
+                    accuracy_error_nm = 0
+                except Exception as e:
+                    raise Exception(f"Error calculating coordinates from FIX: {str(e)}")
             
             end_time = datetime.datetime.now()
             elapsed_ms = (end_time - start_time).total_seconds() * 1000
@@ -1304,9 +1339,20 @@ class FixCalculationFrame(BaseCalculationFrame):
             min_dist = max(0.0, fix_dme_distance_nm - distance_nm - 1)
             max_dist = fix_dme_distance_nm + distance_nm + 1
         
+        # Validate search range
+        if min_dist >= max_dist:
+            # If search range is invalid, use a default range
+            min_dist = 0.0
+            max_dist = max(1.0, distance_nm * 2)
+        
         # Binary search for intersection
         best_approx_distance = float('inf')
-        best_approx_point = Coordinates(0, 0)
+        # Initialize with a reasonable starting point based on fix coordinates
+        try:
+            best_approx_point = Coordinates(fix_coords.lat, fix_coords.lon)
+        except ValueError:
+            # Fallback to center coordinates if fix_coords is invalid
+            best_approx_point = Coordinates(0, 0)
         
         for iteration in range(MAX_ITERATIONS):
             test_dist = (min_dist + max_dist) / 2.0

@@ -1,1 +1,2 @@
 geographiclib>=2.0
+pygeomag
