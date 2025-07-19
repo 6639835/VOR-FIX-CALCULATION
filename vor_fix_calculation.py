@@ -96,8 +96,8 @@ class Coordinates:
     def __post_init__(self):
         if not (-90 <= self.lat <= 90):
             raise ValueError(f"Latitude {self.lat} out of range (±90)")
-        if not (-180 < self.lon <= 180):
-            raise ValueError(f"Longitude {self.lon} out of range (-180, 180]")
+        if not (-180 <= self.lon <= 180):
+            raise ValueError(f"Longitude {self.lon} out of range [-180, 180]")
     
     def __str__(self) -> str:
         return f"{self.lat:.9f} {self.lon:.9f}"
@@ -358,7 +358,15 @@ class CoordinateCalculator:
     ) -> Dict[str, float]:
         """Calculate overall precision metrics for multiple calculations."""
         if not calculations:
-            return {}
+            return {
+                'mean_distance_error_m': 0.0,
+                'max_distance_error_m': 0.0,
+                'min_distance_error_m': 0.0,
+                'mean_azimuth_error_deg': 0.0,
+                'max_azimuth_error_deg': 0.0,
+                'min_azimuth_error_deg': 0.0,
+                'total_calculations': 0
+            }
         
         distance_errors = []
         azimuth_errors = []
@@ -861,9 +869,18 @@ class WaypointCalculationFrame(BaseCalculationFrame):
         file_type = FileType(self.search_file_type.get())
         
         for line_parts in matching_lines:
+            # Check if we have enough data to safely access indices
+            if not line_parts:
+                continue  # Skip empty lines
+            
             first_part = line_parts[0]
             type_str = NAV_TYPE_DESCRIPTIONS.get(first_part, "Unknown")
             relevant_index = 7 if file_type == FileType.NAV else 2
+            
+            # Check if we have enough parts for the relevant index
+            if len(line_parts) <= relevant_index:
+                continue  # Skip lines with insufficient data
+                
             display_text = f"{type_str} - {line_parts[relevant_index]}"
             
             if len(line_parts) > 9:
@@ -1304,9 +1321,18 @@ class FixCalculationFrame(BaseCalculationFrame):
         selected_line = tk.StringVar()
         
         for line_parts in matching_lines:
+            # Check if we have enough data to safely access indices
+            if not line_parts:
+                continue  # Skip empty lines
+                
             first_part = line_parts[0]
             type_str = NAV_TYPE_DESCRIPTIONS.get(first_part, "Unknown")
             relevant_index = 7
+            
+            # Check if we have enough parts for the relevant index
+            if len(line_parts) <= relevant_index:
+                continue  # Skip lines with insufficient data
+                
             display_text = f"{type_str} - {line_parts[relevant_index]}"
             
             if len(line_parts) > 9:

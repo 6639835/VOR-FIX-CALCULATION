@@ -49,8 +49,8 @@ class Coordinates:
     def __post_init__(self):
         if not (-90 <= self.lat <= 90):
             raise ValueError(f"Latitude {self.lat} out of range (±90)")
-        if not (-180 < self.lon <= 180):
-            raise ValueError(f"Longitude {self.lon} out of range (-180, 180]")
+        if not (-180 <= self.lon <= 180):
+            raise ValueError(f"Longitude {self.lon} out of range [-180, 180]")
     
     def __str__(self) -> str:
         return f"{self.lat:.9f} {self.lon:.9f}"
@@ -180,6 +180,42 @@ class CoordinateCalculator:
             return "ACCEPTABLE"
         else:
             return "POOR"
+
+    @staticmethod
+    def calculate_precision_metrics(
+        calculations: List[Tuple[Coordinates, Coordinates, float, float]]
+    ) -> Dict[str, float]:
+        """Calculate overall precision metrics for multiple calculations."""
+        if not calculations:
+            return {
+                'mean_distance_error_m': 0.0,
+                'max_distance_error_m': 0.0,
+                'min_distance_error_m': 0.0,
+                'mean_azimuth_error_deg': 0.0,
+                'max_azimuth_error_deg': 0.0,
+                'min_azimuth_error_deg': 0.0,
+                'total_calculations': 0
+            }
+        
+        distance_errors = []
+        azimuth_errors = []
+        
+        for start_coords, end_coords, expected_azimuth, expected_distance_nm in calculations:
+            metrics = CoordinateCalculator.validate_calculation_accuracy(
+                start_coords, end_coords, expected_azimuth, expected_distance_nm
+            )
+            distance_errors.append(metrics['distance_error_m'])
+            azimuth_errors.append(metrics['azimuth_error_deg'])
+        
+        return {
+            'mean_distance_error_m': sum(distance_errors) / len(distance_errors),
+            'max_distance_error_m': max(distance_errors),
+            'min_distance_error_m': min(distance_errors),
+            'mean_azimuth_error_deg': sum(azimuth_errors) / len(azimuth_errors),
+            'max_azimuth_error_deg': max(azimuth_errors),
+            'min_azimuth_error_deg': min(azimuth_errors),
+            'total_calculations': len(calculations)
+        }
 
 class InputValidator:
     """Validates user input for the application."""
