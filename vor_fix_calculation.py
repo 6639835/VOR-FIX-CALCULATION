@@ -1,3 +1,10 @@
+"""
+VOR Fix Calculation Tool
+
+A comprehensive tool for calculating waypoints and fixes using VOR/DME and NDB navigation data.
+Supports both magnetic and true bearing calculations with automatic magnetic declination.
+"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from geographiclib.geodesic import Geodesic
@@ -5,9 +12,14 @@ import math
 import os
 import datetime
 import importlib.util
-from typing import Optional, Tuple, Dict, List, Any
-from dataclasses import dataclass
+import logging
+from typing import Optional, Tuple, Dict, List, Any, Union
+from dataclasses import dataclass, field
 from enum import Enum
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Constants for the Earth's ellipsoid model with maximum precision settings
 GEODESIC = Geodesic.WGS84
@@ -20,6 +32,17 @@ ANGLE_TOLERANCE_DEG = 0.0001  # Extremely precise angular tolerance (about 0.36 
 
 # Meters per nautical mile, defined exactly
 METERS_PER_NM = 1852.0
+
+# Coordinate validation constants
+MIN_LATITUDE = -90.0
+MAX_LATITUDE = 90.0
+MIN_LONGITUDE = -180.0
+MAX_LONGITUDE = 180.0
+
+# Distance and bearing validation constants
+MIN_BEARING = 0.0
+MAX_BEARING = 360.0
+MIN_DISTANCE = 0.0001  # Minimum distance in nautical miles
 
 # Operation codes
 OPERATION_CODES = {
@@ -81,13 +104,32 @@ class Coordinates:
     lon: float
     
     def __post_init__(self):
-        if not (-90 <= self.lat <= 90):
-            raise ValueError(f"Latitude {self.lat} out of range (±90)")
-        if not (-180 <= self.lon <= 180):
-            raise ValueError(f"Longitude {self.lon} out of range (±180)")
+        """Validate coordinates after initialization."""
+        self._validate_latitude()
+        self._validate_longitude()
+    
+    def _validate_latitude(self) -> None:
+        """Validate latitude is within acceptable range."""
+        if not (MIN_LATITUDE <= self.lat <= MAX_LATITUDE):
+            raise ValueError(f"Latitude {self.lat} out of range ({MIN_LATITUDE} to {MAX_LATITUDE})")
+    
+    def _validate_longitude(self) -> None:
+        """Validate longitude is within acceptable range."""
+        if not (MIN_LONGITUDE <= self.lon <= MAX_LONGITUDE):
+            raise ValueError(f"Longitude {self.lon} out of range ({MIN_LONGITUDE} to {MAX_LONGITUDE})")
     
     def __str__(self) -> str:
+        """Return string representation with high precision."""
         return f"{self.lat:.9f} {self.lon:.9f}"
+    
+    def to_tuple(self) -> Tuple[float, float]:
+        """Return coordinates as a tuple."""
+        return (self.lat, self.lon)
+    
+    def distance_to(self, other: 'Coordinates') -> float:
+        """Calculate distance to another coordinate in meters."""
+        result = GEODESIC.Inverse(self.lat, self.lon, other.lat, other.lon)
+        return result['s12']
 
 @dataclass
 class CalculationResult:

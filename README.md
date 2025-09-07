@@ -29,10 +29,17 @@ A professional aviation coordinate calculation application for determining waypo
 ### Prerequisites
 - Python 3.7+
 - tkinter (usually included with Python)
-- Required Python packages:
+
+### Dependencies
+Install required packages using pip:
 
 ```bash
-pip install geographiclib pygeomag
+pip install -r requirements.txt
+```
+
+Or manually:
+```bash
+pip install geographiclib>=2.0 pygeomag>=1.0.0
 ```
 
 ### Optional Dependencies
@@ -42,6 +49,10 @@ pip install geographiclib pygeomag
 
 ### Starting the Application
 ```bash
+# Run the improved modular version
+python vor_fix_calculation_new.py
+
+# Or run the original version
 python vor_fix_calculation.py
 ```
 
