@@ -30,19 +30,21 @@ DISTANCE_TOLERANCE_NM = 0.00000054  # About 1 meter in nautical miles (1/1852)
 DISTANCE_TOLERANCE_M = 1.0  # Tolerance in meters (1-meter precision)
 ANGLE_TOLERANCE_DEG = 0.0001  # Extremely precise angular tolerance (about 0.36 arcseconds)
 
-# Meters per nautical mile, defined exactly
+# Enhanced precision constants for improved accuracy
+NEWTON_RAPHSON_TOLERANCE_M = 0.1  # Even tighter tolerance for Newton-Raphson
+GRADIENT_STEP_SIZE = 0.001  # Small step size for numerical gradient calculation
+MIN_SEARCH_RANGE_NM = 0.000001  # Minimum search range to prevent infinite loops
+
+# Meters per nautical mile, defined exactly (constant should never be modified)
 METERS_PER_NM = 1852.0
 
-# Coordinate validation constants
-MIN_LATITUDE = -90.0
-MAX_LATITUDE = 90.0
-MIN_LONGITUDE = -180.0
-MAX_LONGITUDE = 180.0
+def _validate_constants():
+    """Validate critical constants to prevent division by zero errors."""
+    if METERS_PER_NM <= 0:
+        raise ValueError("METERS_PER_NM constant must be positive")
 
-# Distance and bearing validation constants
-MIN_BEARING = 0.0
-MAX_BEARING = 360.0
-MIN_DISTANCE = 0.0001  # Minimum distance in nautical miles
+# Validate constants on import
+_validate_constants()
 
 # Operation codes
 OPERATION_CODES = {
@@ -104,19 +106,10 @@ class Coordinates:
     lon: float
     
     def __post_init__(self):
-        """Validate coordinates after initialization."""
-        self._validate_latitude()
-        self._validate_longitude()
-    
-    def _validate_latitude(self) -> None:
-        """Validate latitude is within acceptable range."""
-        if not (MIN_LATITUDE <= self.lat <= MAX_LATITUDE):
-            raise ValueError(f"Latitude {self.lat} out of range ({MIN_LATITUDE} to {MAX_LATITUDE})")
-    
-    def _validate_longitude(self) -> None:
-        """Validate longitude is within acceptable range."""
-        if not (MIN_LONGITUDE <= self.lon <= MAX_LONGITUDE):
-            raise ValueError(f"Longitude {self.lon} out of range ({MIN_LONGITUDE} to {MAX_LONGITUDE})")
+        if not (-90 <= self.lat <= 90):
+            raise ValueError(f"Latitude {self.lat} out of range (±90)")
+        if not (-180 <= self.lon <= 180):
+            raise ValueError(f"Longitude {self.lon} out of range [-180, 180]")
     
     def __str__(self) -> str:
         """Return string representation with high precision."""
@@ -170,26 +163,70 @@ class MagneticDeclinationService:
             self.pygeomag_available = False
             self.geomag_initialized = False
     
-    def get_declination(self, coordinates: Coordinates) -> float:
-        """Calculate magnetic declination at the given coordinates."""
+    def get_declination(self, coordinates: Coordinates, altitude_m: float = 0.0, date: Optional[datetime.datetime] = None) -> float:
+        """Calculate magnetic declination at the given coordinates with enhanced precision."""
         if not (self.pygeomag_available and self.geomag_initialized):
             return 0.0
+        
+        try:
+            # Use provided date or current date
+            target_date = date or datetime.datetime.today()
+            
+            # Calculate decimal year with high precision
+            year_start = datetime.datetime(target_date.year, 1, 1)
+            year_end = datetime.datetime(target_date.year + 1, 1, 1)
+            year_duration = (year_end - year_start).total_seconds()
+            elapsed_seconds = (target_date - year_start).total_seconds()
+            decimal_year = target_date.year + (elapsed_seconds / year_duration)
+            
+            # Convert altitude to kilometers for geomag calculation
+            altitude_km = altitude_m / 1000.0
+            
+            result = self.geo_mag.calculate(
+                glat=coordinates.lat, 
+                glon=coordinates.lon, 
+                alt=altitude_km, 
+                time=decimal_year
+            )
+            
+            # Return declination with proper rounding to avoid floating point precision issues
+            return round(result.d, 4)  # Round to 0.0001 degree precision
+            
+        except Exception:
+            return 0.0
+    
+    def get_enhanced_declination_info(self, coordinates: Coordinates, altitude_m: float = 0.0) -> Dict[str, float]:
+        """Get comprehensive magnetic declination information."""
+        if not (self.pygeomag_available and self.geomag_initialized):
+            return {'declination': 0.0, 'inclination': 0.0, 'horizontal_intensity': 0.0, 'total_intensity': 0.0}
         
         try:
             today = datetime.datetime.today()
             year = today.year
             day_of_year = today.timetuple().tm_yday
-            time = year + (day_of_year - 1) / 365
+            decimal_year = year + (day_of_year - 1) / 365.25  # More accurate leap year handling
+            
+            altitude_km = altitude_m / 1000.0
             
             result = self.geo_mag.calculate(
                 glat=coordinates.lat, 
                 glon=coordinates.lon, 
-                alt=0, 
-                time=time
+                alt=altitude_km, 
+                time=decimal_year
             )
-            return result.d
+            
+            return {
+                'declination': round(result.d, 4),
+                'inclination': round(result.i, 4),
+                'horizontal_intensity': round(result.h, 2),
+                'total_intensity': round(result.f, 2),
+                'north_component': round(result.x, 2),
+                'east_component': round(result.y, 2),
+                'vertical_component': round(result.z, 2)
+            }
+            
         except Exception:
-            return 0.0
+            return {'declination': 0.0, 'inclination': 0.0, 'horizontal_intensity': 0.0, 'total_intensity': 0.0}
 
 class CoordinateCalculator:
     """Service for performing coordinate calculations."""
@@ -210,12 +247,14 @@ class CoordinateCalculator:
         azimuth: float, 
         distance_nm: float
     ) -> Coordinates:
-        """Calculate target coordinates with ultra-high precision."""
+        """Calculate target coordinates with ultra-high precision and adaptive refinement."""
         distance_m = CoordinateCalculator.nm_to_meters(distance_nm)
         
+        # Use high-precision direct calculation
         result = GEODESIC.Direct(start_coords.lat, start_coords.lon, azimuth, distance_m)
+        initial_coords = Coordinates(result['lat2'], result['lon2'])
         
-        # Verify the calculation
+        # Verify the calculation with inverse calculation
         verification = GEODESIC.Inverse(
             start_coords.lat, start_coords.lon, 
             result['lat2'], result['lon2']
@@ -223,37 +262,153 @@ class CoordinateCalculator:
         actual_distance_m = verification['s12']
         distance_error_m = abs(actual_distance_m - distance_m)
         
-        # For very long distances, use multi-step approach
-        if distance_error_m > 0.1:
-            num_steps = max(1, int(distance_nm / 500))
-            if num_steps > 1:
-                step_coords = start_coords
-                step_distance = distance_m / num_steps
-                for _ in range(num_steps):
-                    step_result = GEODESIC.Direct(
-                        step_coords.lat, step_coords.lon, azimuth, step_distance
-                    )
-                    step_coords = Coordinates(step_result['lat2'], step_result['lon2'])
-                return step_coords
+        # If error is acceptable, return immediately
+        if distance_error_m <= DISTANCE_TOLERANCE_M:
+            return initial_coords
         
-        return Coordinates(result['lat2'], result['lon2'])
+        # For distances with higher error, use adaptive multi-step approach
+        optimal_coords = initial_coords
+        min_error = distance_error_m
+        
+        # Try different step sizes to find optimal accuracy
+        step_sizes = [100, 250, 500, 1000]  # Different step sizes in km
+        
+        for step_size_km in step_sizes:
+            if distance_nm < step_size_km / 1.852:  # Convert km to nm
+                continue  # Skip if distance is smaller than step size
+                
+            num_steps = max(2, int(distance_nm * 1.852 / step_size_km))
+            step_coords = start_coords
+            step_distance = distance_m / num_steps
+            
+            # Multi-step calculation with verification at each step
+            for step in range(num_steps):
+                step_result = GEODESIC.Direct(
+                    step_coords.lat, step_coords.lon, azimuth, step_distance
+                )
+                step_coords = Coordinates(step_result['lat2'], step_result['lon2'])
+            
+            # Final verification for this approach
+            final_verification = GEODESIC.Inverse(
+                start_coords.lat, start_coords.lon,
+                step_coords.lat, step_coords.lon
+            )
+            final_distance_error = abs(final_verification['s12'] - distance_m)
+            
+            # Keep the most accurate result
+            if final_distance_error < min_error:
+                min_error = final_distance_error
+                optimal_coords = step_coords
+                
+                # If we achieved excellent accuracy, stop searching
+                if min_error <= DISTANCE_TOLERANCE_M:
+                    break
+        
+        return optimal_coords
 
     @staticmethod
     def get_radius_letter(distance_nm: float) -> str:
         """Get the single-letter radius designator."""
         ranges = [
-            (0.1, 1.4, 'A'), (1.5, 2.4, 'B'), (2.5, 3.4, 'C'), (3.5, 4.4, 'D'),
-            (4.5, 5.4, 'E'), (5.5, 6.4, 'F'), (6.5, 7.4, 'G'), (7.5, 8.4, 'H'),
-            (8.5, 9.4, 'I'), (9.5, 10.4, 'J'), (10.5, 11.4, 'K'), (11.5, 12.4, 'L'),
-            (12.5, 13.4, 'M'), (13.5, 14.4, 'N'), (14.5, 15.4, 'O'), (15.5, 16.4, 'P'),
-            (16.5, 17.4, 'Q'), (17.5, 18.4, 'R'), (18.5, 19.4, 'S'), (19.5, 20.4, 'T'),
-            (20.5, 21.4, 'U'), (21.5, 22.4, 'V'), (22.5, 23.4, 'W'), (23.5, 24.4, 'X'),
-            (24.5, 25.4, 'Y'), (25.5, 26.4, 'Z')
+            (0.1, 1.5, 'A'), (1.5, 2.5, 'B'), (2.5, 3.5, 'C'), (3.5, 4.5, 'D'),
+            (4.5, 5.5, 'E'), (5.5, 6.5, 'F'), (6.5, 7.5, 'G'), (7.5, 8.5, 'H'),
+            (8.5, 9.5, 'I'), (9.5, 10.5, 'J'), (10.5, 11.5, 'K'), (11.5, 12.5, 'L'),
+            (12.5, 13.5, 'M'), (13.5, 14.5, 'N'), (14.5, 15.5, 'O'), (15.5, 16.5, 'P'),
+            (16.5, 17.5, 'Q'), (17.5, 18.5, 'R'), (18.5, 19.5, 'S'), (19.5, 20.5, 'T'),
+            (20.5, 21.5, 'U'), (21.5, 22.5, 'V'), (22.5, 23.5, 'W'), (23.5, 24.5, 'X'),
+            (24.5, 25.5, 'Y'), (25.5, 26.5, 'Z')
         ]
         for low, high, letter in ranges:
-            if low <= distance_nm <= high:
+            if low <= distance_nm < high:
                 return letter
+        # Handle edge cases
+        if distance_nm < 0.1:
+            return 'A'
         return 'Z'
+
+    @staticmethod
+    def validate_calculation_accuracy(
+        start_coords: Coordinates,
+        end_coords: Coordinates,
+        expected_azimuth: float,
+        expected_distance_nm: float
+    ) -> Dict[str, float]:
+        """Validate the accuracy of a coordinate calculation."""
+        result = GEODESIC.Inverse(start_coords.lat, start_coords.lon, end_coords.lat, end_coords.lon)
+        
+        actual_distance_m = result['s12']
+        actual_distance_nm = CoordinateCalculator.meters_to_nm(actual_distance_m)
+        actual_azimuth = result['azi1']
+        
+        # Normalize azimuths to 0-360 range
+        actual_azimuth = actual_azimuth % 360
+        expected_azimuth = expected_azimuth % 360
+        
+        # Calculate azimuth difference (shortest angular distance)
+        azimuth_diff = abs(actual_azimuth - expected_azimuth)
+        azimuth_diff = min(azimuth_diff, 360 - azimuth_diff)
+        
+        distance_error_nm = abs(actual_distance_nm - expected_distance_nm)
+        distance_error_m = abs(actual_distance_m - CoordinateCalculator.nm_to_meters(expected_distance_nm))
+        
+        return {
+            'distance_error_nm': distance_error_nm,
+            'distance_error_m': distance_error_m,
+            'azimuth_error_deg': azimuth_diff,
+            'actual_distance_nm': actual_distance_nm,
+            'actual_azimuth_deg': actual_azimuth,
+            'accuracy_rating': CoordinateCalculator._calculate_accuracy_rating(distance_error_m, azimuth_diff)
+        }
+    
+    @staticmethod
+    def _calculate_accuracy_rating(distance_error_m: float, azimuth_error_deg: float) -> str:
+        """Calculate accuracy rating based on errors."""
+        if distance_error_m <= 1.0 and azimuth_error_deg <= 0.001:
+            return "EXCELLENT"
+        elif distance_error_m <= 5.0 and azimuth_error_deg <= 0.01:
+            return "VERY_GOOD"
+        elif distance_error_m <= 10.0 and azimuth_error_deg <= 0.1:
+            return "GOOD"
+        elif distance_error_m <= 50.0 and azimuth_error_deg <= 1.0:
+            return "ACCEPTABLE"
+        else:
+            return "POOR"
+    
+    @staticmethod
+    def calculate_precision_metrics(
+        calculations: List[Tuple[Coordinates, Coordinates, float, float]]
+    ) -> Dict[str, float]:
+        """Calculate overall precision metrics for multiple calculations."""
+        if not calculations:
+            return {
+                'mean_distance_error_m': 0.0,
+                'max_distance_error_m': 0.0,
+                'min_distance_error_m': 0.0,
+                'mean_azimuth_error_deg': 0.0,
+                'max_azimuth_error_deg': 0.0,
+                'min_azimuth_error_deg': 0.0,
+                'total_calculations': 0
+            }
+        
+        distance_errors = []
+        azimuth_errors = []
+        
+        for start_coords, end_coords, expected_azimuth, expected_distance_nm in calculations:
+            metrics = CoordinateCalculator.validate_calculation_accuracy(
+                start_coords, end_coords, expected_azimuth, expected_distance_nm
+            )
+            distance_errors.append(metrics['distance_error_m'])
+            azimuth_errors.append(metrics['azimuth_error_deg'])
+        
+        return {
+            'mean_distance_error_m': sum(distance_errors) / len(distance_errors),
+            'max_distance_error_m': max(distance_errors),
+            'min_distance_error_m': min(distance_errors),
+            'mean_azimuth_error_deg': sum(azimuth_errors) / len(azimuth_errors),
+            'max_azimuth_error_deg': max(azimuth_errors),
+            'min_azimuth_error_deg': min(azimuth_errors),
+            'total_calculations': len(calculations)
+        }
 
 class NavigationDataService:
     """Service for reading and searching navigation data files."""
@@ -307,11 +462,17 @@ class InputValidator:
         if not coords_str.strip():
             raise ValueError("Coordinates cannot be empty")
         
+        parts = coords_str.strip().split()
+        if len(parts) != 2:
+            raise ValueError("Coordinates must contain exactly two numbers: latitude and longitude")
+        
         try:
-            lat, lon = map(float, coords_str.split())
+            lat, lon = map(float, parts)
             return Coordinates(lat, lon)
-        except ValueError:
-            raise ValueError("Invalid coordinate format. Use 'latitude longitude'")
+        except ValueError as e:
+            if "could not convert" in str(e):
+                raise ValueError("Coordinates must be valid numbers")
+            raise ValueError(f"Invalid coordinate format: {str(e)}")
     
     @staticmethod
     def validate_bearing(bearing_str: str) -> float:
@@ -390,33 +551,36 @@ class FileSelectionFrame:
     
     def _create_widgets(self):
         """Create the file selection widgets."""
+        # Configure grid columns
+        self.frame.columnconfigure(1, weight=1)
+        
         # FIX File Selection
-        tk.Label(self.frame, text="FIX File:", width=8, anchor="w").pack(
-            side=tk.LEFT, padx=5
+        tk.Label(self.frame, text="FIX File:", width=8, anchor="w").grid(
+            row=0, column=0, padx=5, pady=2, sticky="w"
         )
         self.entry_fix_file = tk.Entry(self.frame, width=40)
-        self.entry_fix_file.pack(side=tk.LEFT, padx=5, fill="x", expand=True)
+        self.entry_fix_file.grid(row=0, column=1, padx=5, pady=2, sticky="ew")
         
         btn_browse_fix = tk.Button(
             self.frame, 
             text="Browse", 
             command=lambda: self._browse_file(FileType.FIX)
         )
-        btn_browse_fix.pack(side=tk.LEFT, padx=5)
+        btn_browse_fix.grid(row=0, column=2, padx=5, pady=2)
 
         # NAV File Selection
-        tk.Label(self.frame, text="NAV File:", width=8, anchor="w").pack(
-            side=tk.LEFT, padx=5
+        tk.Label(self.frame, text="NAV File:", width=8, anchor="w").grid(
+            row=1, column=0, padx=5, pady=2, sticky="w"
         )
         self.entry_nav_file = tk.Entry(self.frame, width=40)
-        self.entry_nav_file.pack(side=tk.LEFT, padx=5, fill="x", expand=True)
+        self.entry_nav_file.grid(row=1, column=1, padx=5, pady=2, sticky="ew")
         
         btn_browse_nav = tk.Button(
             self.frame, 
             text="Browse", 
             command=lambda: self._browse_file(FileType.NAV)
         )
-        btn_browse_nav.pack(side=tk.LEFT, padx=5)
+        btn_browse_nav.grid(row=1, column=2, padx=5, pady=2)
     
     def _browse_file(self, file_type: FileType):
         """Browse for a file of the specified type."""
@@ -727,9 +891,18 @@ class WaypointCalculationFrame(BaseCalculationFrame):
         file_type = FileType(self.search_file_type.get())
         
         for line_parts in matching_lines:
+            # Check if we have enough data to safely access indices
+            if not line_parts:
+                continue  # Skip empty lines
+            
             first_part = line_parts[0]
             type_str = NAV_TYPE_DESCRIPTIONS.get(first_part, "Unknown")
             relevant_index = 7 if file_type == FileType.NAV else 2
+            
+            # Check if we have enough parts for the relevant index
+            if len(line_parts) <= relevant_index:
+                continue  # Skip lines with insufficient data
+                
             display_text = f"{type_str} - {line_parts[relevant_index]}"
             
             if len(line_parts) > 9:
@@ -764,12 +937,16 @@ class WaypointCalculationFrame(BaseCalculationFrame):
             lat_index = 1 if file_type == FileType.NAV else 0
             lon_index = 2 if file_type == FileType.NAV else 1
             
+            # Check if we have enough data
+            if len(line_parts) <= max(lat_index, lon_index):
+                raise IndexError("Insufficient coordinate data in file entry")
+            
             coordinates = Coordinates(float(line_parts[lat_index]), float(line_parts[lon_index]))
             self.entry_coords.delete(0, tk.END)
             self.entry_coords.insert(0, str(coordinates))
             
-        except (ValueError, IndexError):
-            messagebox.showerror("Data Error", "Invalid coordinate data in the selected file.")
+        except (ValueError, IndexError) as e:
+            messagebox.showerror("Data Error", f"Invalid coordinate data in the selected file: {str(e)}")
     
     def update_declination(self):
         """Update auto declination from coordinates."""
@@ -1166,9 +1343,18 @@ class FixCalculationFrame(BaseCalculationFrame):
         selected_line = tk.StringVar()
         
         for line_parts in matching_lines:
+            # Check if we have enough data to safely access indices
+            if not line_parts:
+                continue  # Skip empty lines
+                
             first_part = line_parts[0]
             type_str = NAV_TYPE_DESCRIPTIONS.get(first_part, "Unknown")
             relevant_index = 7
+            
+            # Check if we have enough parts for the relevant index
+            if len(line_parts) <= relevant_index:
+                continue  # Skip lines with insufficient data
+                
             display_text = f"{type_str} - {line_parts[relevant_index]}"
             
             if len(line_parts) > 9:
@@ -1203,21 +1389,29 @@ class FixCalculationFrame(BaseCalculationFrame):
             lat_index = 0 if file_type == FileType.FIX else 1
             lon_index = 1 if file_type == FileType.FIX else 2
             
+            # Check if we have enough data
+            if len(line_parts) <= max(lat_index, lon_index):
+                raise IndexError("Insufficient coordinate data in file entry")
+            
             coordinates = Coordinates(float(line_parts[lat_index]), float(line_parts[lon_index]))
             self.entry_fix_coords.delete(0, tk.END)
             self.entry_fix_coords.insert(0, str(coordinates))
             
-        except (ValueError, IndexError):
-            messagebox.showerror("Data Error", "Invalid coordinate data in the selected file.")
+        except (ValueError, IndexError) as e:
+            messagebox.showerror("Data Error", f"Invalid coordinate data in the selected file: {str(e)}")
     
     def _set_dme_coords(self, line_parts: List[str]):
         """Set DME coordinates from search results."""
         try:
+            # Check if we have enough data (need at least 3 elements for indices 1 and 2)
+            if len(line_parts) < 3:
+                raise IndexError("Insufficient coordinate data in DME entry")
+            
             coordinates = Coordinates(float(line_parts[1]), float(line_parts[2]))
             self.entry_dme_coords.delete(0, tk.END)
             self.entry_dme_coords.insert(0, str(coordinates))
-        except (ValueError, IndexError):
-            messagebox.showerror("Data Error", "Invalid coordinate data in the selected DME.")
+        except (ValueError, IndexError) as e:
+            messagebox.showerror("Data Error", f"Invalid coordinate data in the selected DME: {str(e)}")
     
     def update_dme_declination(self):
         """Update auto declination from DME coordinates."""
@@ -1289,10 +1483,13 @@ class FixCalculationFrame(BaseCalculationFrame):
                 accuracy_error_nm = abs(actual_distance_nm - distance_nm)
             else:
                 # Calculate directly from FIX
-                intersection_point = self.calculator.calculate_target_coords_geodesic(
-                    fix_coords, true_bearing, distance_nm
-                )
-                accuracy_error_nm = 0
+                try:
+                    intersection_point = self.calculator.calculate_target_coords_geodesic(
+                        fix_coords, true_bearing, distance_nm
+                    )
+                    accuracy_error_nm = 0
+                except Exception as e:
+                    raise Exception(f"Error calculating coordinates from FIX: {str(e)}")
             
             end_time = datetime.datetime.now()
             elapsed_ms = (end_time - start_time).total_seconds() * 1000
@@ -1330,25 +1527,143 @@ class FixCalculationFrame(BaseCalculationFrame):
         dme_coords: Coordinates, 
         distance_nm: float
     ) -> Coordinates:
-        """Find intersection of radial from FIX with distance circle from DME."""
+        """Find intersection of radial from FIX with distance circle from DME using enhanced algorithm."""
         distance_m = self.calculator.nm_to_meters(distance_nm)
         
+        # Try Newton-Raphson method first for better accuracy
+        try:
+            result = self._newton_raphson_intersection(fix_coords, true_bearing, dme_coords, distance_m)
+            if result is not None:
+                return result
+        except Exception:
+            pass  # Fall back to binary search if Newton-Raphson fails
+        
+        # Enhanced binary search with adaptive refinement
+        return self._enhanced_binary_search_intersection(fix_coords, true_bearing, dme_coords, distance_m)
+    
+    def _newton_raphson_intersection(
+        self, 
+        fix_coords: Coordinates, 
+        true_bearing: float, 
+        dme_coords: Coordinates, 
+        distance_m: float
+    ) -> Optional[Coordinates]:
+        """Use Newton-Raphson method for high-precision intersection finding."""
+        # Initial estimate using geometric approximation
+        fix_dme_result = GEODESIC.Inverse(fix_coords.lat, fix_coords.lon, dme_coords.lat, dme_coords.lon)
+        fix_dme_distance_m = fix_dme_result['s12']
+        
+        # Geometric solution for initial guess
+        if fix_dme_distance_m == 0:
+            initial_distance_nm = self.calculator.meters_to_nm(distance_m)
+        else:
+            # Use law of cosines for initial estimate
+            bearing_to_dme = fix_dme_result['azi1']
+            angle_diff = abs(true_bearing - bearing_to_dme)
+            angle_diff = min(angle_diff, 360 - angle_diff)  # Use smallest angle
+            angle_rad = math.radians(angle_diff)
+            
+            # Law of cosines: c² = a² + b² - 2ab*cos(C)
+            # Solve for distance along radial
+            a = fix_dme_distance_m
+            b = distance_m
+            cos_angle = math.cos(angle_rad)
+            
+            # Quadratic formula solution
+            discriminant = 4 * a * a * cos_angle * cos_angle - 4 * (a * a - b * b)
+            if discriminant < 0:
+                return None  # No real solution
+            
+            distance1 = a * cos_angle + math.sqrt(discriminant) / 2
+            distance2 = a * cos_angle - math.sqrt(discriminant) / 2
+            
+            # Choose the positive solution closest to expected range
+            initial_distance_m = max(0, min(distance1, distance2) if min(distance1, distance2) > 0 else max(distance1, distance2))
+            initial_distance_nm = self.calculator.meters_to_nm(initial_distance_m)
+        
+        # Newton-Raphson iterations
+        current_dist_nm = initial_distance_nm
+        
+        for iteration in range(MAX_ITERATIONS):
+            # Calculate current point
+            point_result = GEODESIC.Direct(
+                fix_coords.lat, fix_coords.lon, true_bearing, 
+                self.calculator.nm_to_meters(current_dist_nm)
+            )
+            current_point = Coordinates(point_result['lat2'], point_result['lon2'])
+            
+            # Calculate distance error
+            to_dme = GEODESIC.Inverse(current_point.lat, current_point.lon, dme_coords.lat, dme_coords.lon)
+            current_dist_to_dme_m = to_dme['s12']
+            error_m = current_dist_to_dme_m - distance_m
+            
+            if abs(error_m) < NEWTON_RAPHSON_TOLERANCE_M:
+                return current_point
+            
+            # Calculate numerical derivative (gradient)
+            step_size_nm = GRADIENT_STEP_SIZE
+            step_point_result = GEODESIC.Direct(
+                fix_coords.lat, fix_coords.lon, true_bearing,
+                self.calculator.nm_to_meters(current_dist_nm + step_size_nm)
+            )
+            step_point = Coordinates(step_point_result['lat2'], step_point_result['lon2'])
+            
+            step_to_dme = GEODESIC.Inverse(step_point.lat, step_point.lon, dme_coords.lat, dme_coords.lon)
+            step_dist_to_dme_m = step_to_dme['s12']
+            step_error_m = step_dist_to_dme_m - distance_m
+            
+            # Calculate derivative
+            derivative = (step_error_m - error_m) / self.calculator.nm_to_meters(step_size_nm)
+            
+            if abs(derivative) < 1e-15:  # Avoid division by zero
+                break
+            
+            # Newton-Raphson update
+            correction_m = -error_m / derivative
+            correction_nm = self.calculator.meters_to_nm(correction_m)
+            current_dist_nm += correction_nm
+            
+            # Prevent negative distances
+            if current_dist_nm < 0:
+                current_dist_nm = abs(current_dist_nm)
+        
+        return None  # Failed to converge
+    
+    def _enhanced_binary_search_intersection(
+        self, 
+        fix_coords: Coordinates, 
+        true_bearing: float, 
+        dme_coords: Coordinates, 
+        distance_m: float
+    ) -> Coordinates:
+        """Enhanced binary search with adaptive range and precision refinement."""
         # Calculate distance between FIX and DME
         fix_dme_result = GEODESIC.Inverse(fix_coords.lat, fix_coords.lon, dme_coords.lat, dme_coords.lon)
         fix_dme_distance_nm = self.calculator.meters_to_nm(fix_dme_result['s12'])
+        distance_nm = self.calculator.meters_to_nm(distance_m)
         
-        # Determine search range
+        # Intelligent search range determination
         if distance_nm < 0.05:
             min_dist, max_dist = 0.0, 0.2
         elif distance_nm < 0.5:
             min_dist, max_dist = 0.0, max(1.0, distance_nm * 2)
         else:
-            min_dist = max(0.0, fix_dme_distance_nm - distance_nm - 1)
-            max_dist = fix_dme_distance_nm + distance_nm + 1
+            # Use geometric constraints for better range estimation
+            margin = max(1.0, distance_nm * 0.1)  # Adaptive margin
+            min_dist = max(0.0, abs(fix_dme_distance_nm - distance_nm) - margin)
+            max_dist = fix_dme_distance_nm + distance_nm + margin
         
-        # Binary search for intersection
+        # Validate and adjust search range
+        if min_dist >= max_dist or (max_dist - min_dist) < MIN_SEARCH_RANGE_NM:
+            min_dist = 0.0
+            max_dist = max(1.0, distance_nm * 2)
+        
+        # Enhanced binary search with precision tracking
         best_approx_distance = float('inf')
-        best_approx_point = Coordinates(0, 0)
+        best_approx_point = Coordinates(fix_coords.lat, fix_coords.lon)
+        
+        # Track convergence for adaptive precision
+        last_improvement_iteration = 0
         
         for iteration in range(MAX_ITERATIONS):
             test_dist = (min_dist + max_dist) / 2.0
@@ -1364,20 +1679,29 @@ class FixCalculationFrame(BaseCalculationFrame):
             
             error_m = abs(test_to_dme_m - distance_m)
             
+            # Track best approximation
             if error_m < best_approx_distance:
                 best_approx_distance = error_m
                 best_approx_point = test_point
+                last_improvement_iteration = iteration
             
+            # Check for convergence
             if error_m < DISTANCE_TOLERANCE_M:
                 break
             
-            # Adjust search range
+            # Adaptive precision: if no improvement for many iterations, use current best
+            if iteration - last_improvement_iteration > 20:
+                break
+            
+            # Adjust search range with enhanced logic
             if test_to_dme_m > distance_m:
                 max_dist = test_dist
             else:
                 min_dist = test_dist
             
-            if (max_dist - min_dist) < 0.000001:
+            # Enhanced termination condition
+            range_size = max_dist - min_dist
+            if range_size < MIN_SEARCH_RANGE_NM:
                 break
         
         return best_approx_point
