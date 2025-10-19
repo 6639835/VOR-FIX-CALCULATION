@@ -24,22 +24,58 @@ A professional aviation coordinate calculation application for determining waypo
 - **Intersection Calculations**: Radial-distance intersection finding
 - **Multiple Distance References**: DME or FIX-based distance calculations
 
+## Project Structure
+
+```
+VOR-FIX-CALCULATION/
+├── src/                    # Main application source code
+│   ├── calculator.py       # Coordinate calculation engine
+│   ├── main.py            # Main application class
+│   ├── models.py          # Data models and types
+│   ├── services.py        # Business logic services
+│   ├── validation.py      # Input validation
+│   └── ui/                # User interface components
+│       ├── base.py        # Base UI components
+│       └── waypoint.py    # Waypoint calculation UI
+├── tests/                 # Test suite
+│   ├── test_fixes.py
+│   ├── test_accuracy.py
+│   ├── test_comprehensive.py
+│   └── results/           # Test results
+├── scripts/               # Utility scripts
+├── legacy/                # Legacy code (for reference)
+├── run.py                 # Main entry point
+├── setup.py              # Package installation configuration
+└── requirements.txt      # Python dependencies
+```
+
 ## Installation
 
 ### Prerequisites
 - Python 3.7+
 - tkinter (usually included with Python)
 
-### Dependencies
-Install required packages using pip:
-
+### Quick Start
+1. Clone or download this repository
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-Or manually:
+### Package Installation (Optional)
+For system-wide installation:
 ```bash
-pip install geographiclib>=2.0 pygeomag>=1.0.0
+pip install -e .
+```
+
+After installation, you can run the application from anywhere:
+```bash
+vor-fix-calculator
+```
+
+### Manual Dependency Installation
+```bash
+pip install geographiclib>=2.0 pygeomag>=0.2.1 numpy>=1.21.0 scipy>=1.7.0
 ```
 
 ### Optional Dependencies
@@ -48,12 +84,20 @@ pip install geographiclib>=2.0 pygeomag>=1.0.0
 ## Usage
 
 ### Starting the Application
-```bash
-# Run the improved modular version
-python vor_fix_calculation_new.py
 
-# Or run the original version
-python vor_fix_calculation.py
+**Recommended method:**
+```bash
+python run.py
+```
+
+**After package installation:**
+```bash
+vor-fix-calculator
+```
+
+**Direct module execution:**
+```bash
+python -m src.main
 ```
 
 ### File Setup
@@ -84,8 +128,20 @@ python vor_fix_calculation.py
 
 ## Architecture
 
-### Improved Code Structure
-The application has been completely refactored from a monolithic ~1400-line class into a modular, maintainable architecture:
+### Modern Modular Structure
+The application has been completely refactored from a monolithic ~1400-line class into a clean, maintainable architecture:
+
+```
+src/
+├── calculator.py    # CoordinateCalculator - High-precision geodesic calculations
+├── main.py         # CoordinateCalculatorApp - Main application class
+├── models.py       # Data models (Coordinates, CalculationResult, Enums)
+├── services.py     # Business services (NavigationData, MagneticDeclination)
+├── validation.py   # InputValidator - Robust input validation
+└── ui/            # User interface components
+    ├── base.py    # FileSelectionFrame, BaseCalculationFrame
+    └── waypoint.py # WaypointCalculationFrame
+```
 
 #### Core Services
 - **`MagneticDeclinationService`**: Handles magnetic declination calculations
@@ -97,7 +153,6 @@ The application has been completely refactored from a monolithic ~1400-line clas
 - **`FileSelectionFrame`**: File browsing and selection
 - **`BaseCalculationFrame`**: Common functionality for calculation frames
 - **`WaypointCalculationFrame`**: Waypoint-specific UI and logic
-- **`FixCalculationFrame`**: FIX-specific UI and logic
 
 #### Data Models
 - **`Coordinates`**: Type-safe coordinate representation with validation
@@ -192,6 +247,25 @@ The application has been completely refactored from a monolithic ~1400-line clas
 
 This software is provided as-is for aviation planning and educational purposes. Verify all calculations independently before use in actual navigation.
 
+## Development
+
+### Running Tests
+```bash
+# Run all tests
+python -m pytest tests/
+
+# Run specific test file
+python tests/test_fixes.py
+python tests/test_accuracy.py
+python tests/test_comprehensive.py
+```
+
+### Project Organization
+- **src/**: Main application code (modular, maintainable)
+- **tests/**: Comprehensive test suite
+- **scripts/**: Development and debugging utilities
+- **legacy/**: Archived original implementation
+
 ## Contributing
 
 When contributing to this project:
@@ -200,13 +274,23 @@ When contributing to this project:
 3. Include comprehensive error handling
 4. Write clear docstrings
 5. Maintain the separation of concerns
+6. Place new tests in the `tests/` directory
+7. Keep utility scripts in the `scripts/` directory
 
 ## Changelog
 
-### Version 2.0 (Refactored)
+### Version 2.0 (Current - Refactored & Reorganized)
+- **Project Structure**: Professional organization with dedicated directories
 - **Complete Architecture Overhaul**: Modular design with service classes
 - **Type Safety**: Full type hints and dataclass models
 - **Improved Error Handling**: Comprehensive validation and user feedback
-- **Enhanced UI**: Better organization and user experience
+- **Enhanced UI**: Better organization with `src/ui/` package
 - **Code Quality**: Reduced complexity and improved maintainability
-- **New Features**: Enhanced history management and workflow improvements
+- **Package Installation**: Added `setup.py` for proper installation
+- **Testing**: Organized test suite in dedicated directory
+- **Entry Point**: Simplified with `run.py` main entry point
+
+### Version 1.0 (Legacy)
+- Original monolithic implementation (~1400 lines)
+- Basic functionality for waypoint and fix calculations
+- Available in `legacy/` directory for reference

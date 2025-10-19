@@ -1,7 +1,7 @@
 """
-VOR Fix Calculation Tool - UI Components
+VOR Fix Calculation Tool - UI Base Components
 
-This module contains the user interface components for the application.
+This module contains the base user interface components for the application.
 """
 
 import tkinter as tk
@@ -9,14 +9,14 @@ from tkinter import ttk, messagebox, filedialog
 import datetime
 from typing import Callable, List, Optional
 
-from .models import (
+from ..models import (
     AppMode, FileType, BearingMode, DeclinationMode, Coordinates,
     CalculationResult, NavigationEntry, NAV_TYPE_DESCRIPTIONS,
     OPERATION_CODES, FIX_TYPE_CODES, FIX_USAGE_CODES
 )
-from .services import NavigationDataService, MagneticDeclinationService
-from .calculator import CoordinateCalculator
-from .validation import InputValidator, ValidationResult
+from ..services import NavigationDataService, MagneticDeclinationService
+from ..calculator import CoordinateCalculator
+from ..validation import InputValidator, ValidationResult
 
 
 class FileSelectionFrame:
@@ -189,3 +189,4 @@ class BaseCalculationFrame:
     def pack_forget(self):
         """Hide the frame."""
         self.frame.pack_forget()
+

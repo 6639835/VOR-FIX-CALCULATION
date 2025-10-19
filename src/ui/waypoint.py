@@ -9,14 +9,14 @@ from tkinter import ttk, messagebox
 import datetime
 from typing import Callable, List
 
-from .models import (
+from ..models import (
     AppMode, FileType, BearingMode, DeclinationMode, Coordinates,
     CalculationResult, NavigationEntry, OPERATION_CODES
 )
-from .services import NavigationDataService, MagneticDeclinationService
-from .calculator import CoordinateCalculator
-from .validation import InputValidator, ValidationResult
-from .ui_base import BaseCalculationFrame
+from ..services import NavigationDataService, MagneticDeclinationService
+from ..calculator import CoordinateCalculator
+from ..validation import InputValidator, ValidationResult
+from .base import BaseCalculationFrame
 
 
 class WaypointCalculationFrame(BaseCalculationFrame):
@@ -386,3 +386,4 @@ class WaypointCalculationFrame(BaseCalculationFrame):
         self.entry_declination.delete(0, tk.END)
         self.entry_airport_code.delete(0, tk.END)
         self.entry_vor_identifier.delete(0, tk.END)
+

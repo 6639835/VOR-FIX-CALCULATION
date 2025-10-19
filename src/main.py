@@ -14,8 +14,7 @@ from typing import List
 from .models import AppMode, CalculationResult
 from .services import NavigationDataService, MagneticDeclinationService
 from .calculator import CoordinateCalculator
-from .ui_base import FileSelectionFrame
-from .ui_waypoint import WaypointCalculationFrame
+from .ui import FileSelectionFrame, WaypointCalculationFrame
 
 # Configure logging
 logging.basicConfig(
