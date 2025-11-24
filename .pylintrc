@@ -1,0 +1,31 @@
+[MASTER]
+ignore=.git,__pycache__,.venv,venv,build,dist
+
+[MESSAGES CONTROL]
+disable=
+    C0111,  # missing-docstring
+    C0325,  # superfluous-parens (allow parens for clarity in complex conditions)
+    R0801,  # duplicate-code
+    R0903,  # too-few-public-methods (formatters and data classes are fine with few methods)
+    W0107,  # unnecessary-pass (already fixed)
+    W0201,  # attribute-defined-outside-init (acceptable in UI setup methods)
+    W0718,  # broad-exception-caught (acceptable for user-facing error handling)
+    R0902,  # too-many-instance-attributes (UI classes need many attributes)
+    R0914,  # too-many-locals (acceptable in UI and file parsing methods)
+
+[FORMAT]
+max-line-length=100
+max-module-lines=1000
+
+[DESIGN]
+max-args=7
+max-attributes=30
+max-locals=20
+max-statements=50
+
+[BASIC]
+good-names=i,j,k,ex,_,x,y,lat,lon,id
+
+[SIMILARITIES]
+min-similarity-lines=10
+ignore-imports=yes

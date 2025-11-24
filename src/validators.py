@@ -2,19 +2,27 @@
 Input validation for the VOR-FIX Coordinate Calculator.
 """
 
-from typing import Optional
-
-from .constants import (AIRPORT_CODE_LENGTH, BEARING_MAX, BEARING_MIN, DECLINATION_MAX,
-                        DECLINATION_MIN, DISTANCE_MIN, LAT_MAX, LAT_MIN, LON_MAX, LON_MIN,
-                        RUNWAY_MAX, RUNWAY_MIN, VOR_IDENTIFIER_MAX_LENGTH,
-                        VOR_IDENTIFIER_MIN_LENGTH)
+from .constants import (
+    AIRPORT_CODE_LENGTH,
+    BEARING_MAX,
+    BEARING_MIN,
+    DECLINATION_MAX,
+    DECLINATION_MIN,
+    DISTANCE_MIN,
+    LAT_MAX,
+    LAT_MIN,
+    LON_MAX,
+    LON_MIN,
+    RUNWAY_MAX,
+    RUNWAY_MIN,
+    VOR_IDENTIFIER_MAX_LENGTH,
+    VOR_IDENTIFIER_MIN_LENGTH,
+)
 from .models import Coordinates
 
 
 class ValidationError(Exception):
     """Custom exception for validation errors."""
-
-    pass
 
 
 class CoordinateValidator:

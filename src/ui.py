@@ -4,16 +4,22 @@ User interface for the VOR-FIX Coordinate Calculator.
 
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from typing import Optional
 
 from .calculations import calculate_waypoint, get_radius_designator
 from .constants import FileType, FixType, FixUsage, OperationType
 from .file_operations import DataFileReader
 from .formatters import FixFormatter, NavAidFormatter, WaypointFormatter
-from .models import Coordinates, FixResult, NavAidEntry, WaypointResult
-from .validators import (AirportCodeValidator, BearingValidator, CoordinateValidator,
-                         DeclinationValidator, DistanceValidator, RunwayCodeValidator,
-                         ValidationError, VORIdentifierValidator)
+from .models import FixResult, NavAidEntry, WaypointResult
+from .validators import (
+    AirportCodeValidator,
+    BearingValidator,
+    CoordinateValidator,
+    DeclinationValidator,
+    DistanceValidator,
+    RunwayCodeValidator,
+    ValidationError,
+    VORIdentifierValidator,
+)
 
 
 class CoordinateCalculatorApp:
