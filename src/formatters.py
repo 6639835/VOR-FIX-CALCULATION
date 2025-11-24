@@ -14,7 +14,7 @@ affect the accuracy of the underlying coordinate calculations.
 """
 
 from .constants import LARGE_DISTANCE_THRESHOLD_NM, NavAidType
-from .models import WaypointResult, FixResult, NavAidEntry
+from .models import FixResult, NavAidEntry, WaypointResult
 
 
 class WaypointFormatter:
@@ -37,7 +37,9 @@ class WaypointFormatter:
         # Format based on distance threshold
         if result.distance_nm > LARGE_DISTANCE_THRESHOLD_NM:
             # Large distance format
-            rounded_distance = int(round(result.distance_nm))  # Intentional rounding for aviation notation
+            rounded_distance = int(
+                round(result.distance_nm)
+            )  # Intentional rounding for aviation notation
             output = (
                 f"{coords.latitude:.9f} {coords.longitude:.9f} "
                 f"{result.vor_identifier}{rounded_distance} "
@@ -45,7 +47,9 @@ class WaypointFormatter:
             )
 
             if result.vor_identifier:
-                bearing_int = int(result.magnetic_bearing)  # Intentional rounding for aviation notation
+                bearing_int = int(
+                    result.magnetic_bearing
+                )  # Intentional rounding for aviation notation
                 output += (
                     f" {result.operation_code} "
                     f"{result.vor_identifier}{bearing_int:03d}{rounded_distance:03d}"
@@ -63,7 +67,9 @@ class WaypointFormatter:
             )
 
             if result.vor_identifier:
-                distance_int = int(round(result.distance_nm))  # Intentional rounding for aviation notation
+                distance_int = int(
+                    round(result.distance_nm)
+                )  # Intentional rounding for aviation notation
                 output += (
                     f" {result.operation_code} "
                     f"{result.vor_identifier}{bearing_int:03d}{distance_int:03d}"

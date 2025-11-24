@@ -10,14 +10,7 @@ __author__ = "Your Name"
 __email__ = "your.email@example.com"
 __license__ = "MIT"
 
-from src.models import (
-    Coordinates,
-    WaypointInput,
-    WaypointResult,
-    FixInput,
-    FixResult,
-    NavAidEntry,
-)
+from src.models import Coordinates, FixInput, FixResult, NavAidEntry, WaypointInput, WaypointResult
 
 __all__ = [
     "Coordinates",

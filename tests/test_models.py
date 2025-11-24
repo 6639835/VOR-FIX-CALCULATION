@@ -3,7 +3,8 @@ Test suite for the models module.
 """
 
 import pytest
-from src.models import Coordinates, WaypointInput, WaypointResult, FixInput, FixResult, NavAidEntry
+
+from src.models import Coordinates, FixInput, FixResult, NavAidEntry, WaypointInput, WaypointResult
 
 
 class TestCoordinates:
@@ -42,7 +43,7 @@ class TestWaypointInput:
             distance_nm=10.0,
             declination=15.0,
             airport_code="KSFO",
-            vor_identifier="SFO"
+            vor_identifier="SFO",
         )
         assert waypoint.identifier == "WYPT1"
         assert waypoint.magnetic_bearing == 90.0
@@ -62,7 +63,7 @@ class TestWaypointResult:
             operation_code="A",
             vor_identifier="SFO",
             magnetic_bearing=90.0,
-            distance_nm=10.0
+            distance_nm=10.0,
         )
         assert result.radius_letter == "D"
         assert result.airport_code == "KSFO"
@@ -80,7 +81,7 @@ class TestFixInput:
             fix_type="VOR",
             fix_usage="BOTH",
             runway_code="RW28R",
-            airport_code="KSFO"
+            airport_code="KSFO",
         )
         assert fix_input.identifier == "FIX01"
         assert fix_input.fix_type == "VOR"
@@ -98,7 +99,7 @@ class TestFixResult:
             usage_code="B",
             runway_code="28R",
             airport_code="KSFO",
-            operation_code="A"
+            operation_code="A",
         )
         assert result.fix_code == "V"
         assert result.usage_code == "B"
@@ -114,7 +115,7 @@ class TestNavAidEntry:
             latitude=37.6213,
             longitude=-122.3790,
             identifier="SFO",
-            name="San Francisco"
+            name="San Francisco",
         )
         assert navaid.type_code == "VOR"
         assert navaid.identifier == "SFO"
@@ -127,16 +128,13 @@ class TestNavAidEntry:
             latitude=37.6213,
             longitude=-122.3790,
             identifier="SFO",
-            name="San Francisco"
+            name="San Francisco",
         )
         assert navaid.display_name == "SFO - San Francisco"
 
     def test_navaid_display_name_without_name(self):
         """Test display name when name is not provided."""
         navaid = NavAidEntry(
-            type_code="VOR",
-            latitude=37.6213,
-            longitude=-122.3790,
-            identifier="SFO"
+            type_code="VOR", latitude=37.6213, longitude=-122.3790, identifier="SFO"
         )
         assert navaid.display_name == "SFO"

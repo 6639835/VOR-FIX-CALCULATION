@@ -5,16 +5,9 @@ File operations for reading and parsing navigation data files.
 from pathlib import Path
 from typing import Optional
 
-from .constants import (
-    FileType,
-    NAV_FILE_LAT_INDEX,
-    NAV_FILE_LON_INDEX,
-    NAV_FILE_IDENTIFIER_INDEX,
-    NAV_FILE_TENTH_PART_INDEX,
-    FIX_FILE_LAT_INDEX,
-    FIX_FILE_LON_INDEX,
-    FIX_FILE_IDENTIFIER_INDEX,
-)
+from .constants import (FIX_FILE_IDENTIFIER_INDEX, FIX_FILE_LAT_INDEX, FIX_FILE_LON_INDEX,
+                        NAV_FILE_IDENTIFIER_INDEX, NAV_FILE_LAT_INDEX, NAV_FILE_LON_INDEX,
+                        NAV_FILE_TENTH_PART_INDEX, FileType)
 from .models import NavAidEntry
 
 
@@ -55,7 +48,7 @@ class DataFileReader:
 
         matching_entries = []
 
-        with open(file_path, 'r', encoding='utf-8') as file:
+        with open(file_path, "r", encoding="utf-8") as file:
             for line_num, line in enumerate(file, 1):
                 parts = line.strip().split()
 
@@ -88,14 +81,12 @@ class DataFileReader:
                         longitude=longitude,
                         identifier=parts[id_idx],
                         name=name,
-                        raw_parts=parts
+                        raw_parts=parts,
                     )
                     matching_entries.append(entry)
 
                 except (ValueError, IndexError) as e:
-                    raise ValueError(
-                        f"Invalid data format at line {line_num}: {e}"
-                    ) from e
+                    raise ValueError(f"Invalid data format at line {line_num}: {e}") from e
 
         return matching_entries
 
@@ -121,7 +112,7 @@ class DataFileReader:
             return f"Path is not a file: {file_path}"
 
         try:
-            with open(file_path, 'r', encoding='utf-8'):
+            with open(file_path, "r", encoding="utf-8"):
                 pass
         except PermissionError:
             return f"No permission to read file: {file_path}"

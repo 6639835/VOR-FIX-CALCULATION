@@ -7,15 +7,12 @@ from geographiclib.geodesic import Geodesic
 from .constants import METERS_PER_NAUTICAL_MILE, RADIUS_RANGES
 from .models import Coordinates
 
-
 # Initialize the WGS84 ellipsoid model
 GEODESIC = Geodesic.WGS84
 
 
 def calculate_destination_point(
-    origin: Coordinates,
-    azimuth: float,
-    distance_nm: float
+    origin: Coordinates, azimuth: float, distance_nm: float
 ) -> Coordinates:
     """
     Calculate the destination point given origin, azimuth, and distance.
@@ -29,22 +26,11 @@ def calculate_destination_point(
         Coordinates of the destination point
     """
     distance_meters = distance_nm * METERS_PER_NAUTICAL_MILE
-    result = GEODESIC.Direct(
-        origin.latitude,
-        origin.longitude,
-        azimuth,
-        distance_meters
-    )
-    return Coordinates(
-        latitude=result['lat2'],
-        longitude=result['lon2']
-    )
+    result = GEODESIC.Direct(origin.latitude, origin.longitude, azimuth, distance_meters)
+    return Coordinates(latitude=result["lat2"], longitude=result["lon2"])
 
 
-def magnetic_to_true_bearing(
-    magnetic_bearing: float,
-    declination: float
-) -> float:
+def magnetic_to_true_bearing(magnetic_bearing: float, declination: float) -> float:
     """
     Convert magnetic bearing to true bearing.
 
@@ -71,14 +57,11 @@ def get_radius_designator(distance_nm: float) -> str:
     for low, high, letter in RADIUS_RANGES:
         if low <= distance_nm <= high:
             return letter
-    return 'Z'
+    return "Z"
 
 
 def calculate_waypoint(
-    origin: Coordinates,
-    magnetic_bearing: float,
-    distance_nm: float,
-    declination: float
+    origin: Coordinates, magnetic_bearing: float, distance_nm: float, declination: float
 ) -> Coordinates:
     """
     Calculate waypoint coordinates from origin, magnetic bearing, distance, and declination.

@@ -4,22 +4,16 @@ Input validation for the VOR-FIX Coordinate Calculator.
 
 from typing import Optional
 
-from .constants import (
-    LAT_MIN, LAT_MAX,
-    LON_MIN, LON_MAX,
-    BEARING_MIN, BEARING_MAX,
-    DISTANCE_MIN,
-    DECLINATION_MIN, DECLINATION_MAX,
-    RUNWAY_MIN, RUNWAY_MAX,
-    AIRPORT_CODE_LENGTH,
-    VOR_IDENTIFIER_MIN_LENGTH,
-    VOR_IDENTIFIER_MAX_LENGTH,
-)
+from .constants import (AIRPORT_CODE_LENGTH, BEARING_MAX, BEARING_MIN, DECLINATION_MAX,
+                        DECLINATION_MIN, DISTANCE_MIN, LAT_MAX, LAT_MIN, LON_MAX, LON_MIN,
+                        RUNWAY_MAX, RUNWAY_MIN, VOR_IDENTIFIER_MAX_LENGTH,
+                        VOR_IDENTIFIER_MIN_LENGTH)
 from .models import Coordinates
 
 
 class ValidationError(Exception):
     """Custom exception for validation errors."""
+
     pass
 
 
@@ -39,14 +33,10 @@ class CoordinateValidator:
             ValidationError: If coordinates are invalid
         """
         if not (LAT_MIN <= latitude <= LAT_MAX):
-            raise ValidationError(
-                f"Latitude must be between {LAT_MIN} and {LAT_MAX} degrees"
-            )
+            raise ValidationError(f"Latitude must be between {LAT_MIN} and {LAT_MAX} degrees")
 
         if not (LON_MIN <= longitude <= LON_MAX):
-            raise ValidationError(
-                f"Longitude must be between {LON_MIN} and {LON_MAX} degrees"
-            )
+            raise ValidationError(f"Longitude must be between {LON_MIN} and {LON_MAX} degrees")
 
     @staticmethod
     def parse_coordinates(coord_str: str) -> Coordinates:
@@ -67,17 +57,13 @@ class CoordinateValidator:
 
         parts = coord_str.strip().split()
         if len(parts) != 2:
-            raise ValidationError(
-                "Coordinates must be in format 'latitude longitude'"
-            )
+            raise ValidationError("Coordinates must be in format 'latitude longitude'")
 
         try:
             latitude = float(parts[0])
             longitude = float(parts[1])
         except ValueError as e:
-            raise ValidationError(
-                f"Invalid coordinate format: {e}"
-            ) from e
+            raise ValidationError(f"Invalid coordinate format: {e}") from e
 
         CoordinateValidator.validate(latitude, longitude)
         return Coordinates(latitude, longitude)
@@ -122,9 +108,7 @@ class BearingValidator:
         try:
             bearing = float(bearing_str.strip())
         except ValueError as e:
-            raise ValidationError(
-                f"Invalid bearing format: {e}"
-            ) from e
+            raise ValidationError(f"Invalid bearing format: {e}") from e
 
         BearingValidator.validate(bearing)
 
@@ -150,9 +134,7 @@ class DistanceValidator:
             ValidationError: If distance is invalid
         """
         if distance <= DISTANCE_MIN:
-            raise ValidationError(
-                f"Distance must be greater than {DISTANCE_MIN} nautical miles"
-            )
+            raise ValidationError(f"Distance must be greater than {DISTANCE_MIN} nautical miles")
 
     @staticmethod
     def parse(distance_str: str) -> float:
@@ -174,9 +156,7 @@ class DistanceValidator:
         try:
             distance = float(distance_str.strip())
         except ValueError as e:
-            raise ValidationError(
-                f"Invalid distance format: {e}"
-            ) from e
+            raise ValidationError(f"Invalid distance format: {e}") from e
 
         DistanceValidator.validate(distance)
         return distance
@@ -221,9 +201,7 @@ class DeclinationValidator:
         try:
             declination = float(declination_str.strip())
         except ValueError as e:
-            raise ValidationError(
-                f"Invalid declination format: {e}"
-            ) from e
+            raise ValidationError(f"Invalid declination format: {e}") from e
 
         DeclinationValidator.validate(declination)
         return declination
@@ -247,14 +225,10 @@ class AirportCodeValidator:
             raise ValidationError("Airport code cannot be empty")
 
         if len(code) != AIRPORT_CODE_LENGTH:
-            raise ValidationError(
-                f"Airport code must be exactly {AIRPORT_CODE_LENGTH} characters"
-            )
+            raise ValidationError(f"Airport code must be exactly {AIRPORT_CODE_LENGTH} characters")
 
         if not code.isalpha():
-            raise ValidationError(
-                "Airport code must contain only letters"
-            )
+            raise ValidationError("Airport code must contain only letters")
 
     @staticmethod
     def parse(code_str: str) -> str:
@@ -302,9 +276,7 @@ class VORIdentifierValidator:
             )
 
         if not identifier.isalpha():
-            raise ValidationError(
-                "VOR identifier must contain only letters"
-            )
+            raise ValidationError("VOR identifier must contain only letters")
 
     @staticmethod
     def parse(identifier_str: str, allow_empty: bool = True) -> str:
@@ -341,9 +313,7 @@ class RunwayCodeValidator:
             ValidationError: If code is invalid
         """
         if not (RUNWAY_MIN <= code <= RUNWAY_MAX):
-            raise ValidationError(
-                f"Runway code must be between {RUNWAY_MIN} and {RUNWAY_MAX}"
-            )
+            raise ValidationError(f"Runway code must be between {RUNWAY_MIN} and {RUNWAY_MAX}")
 
     @staticmethod
     def parse(code_str: str) -> int:
@@ -365,9 +335,7 @@ class RunwayCodeValidator:
         try:
             code = int(code_str.strip())
         except ValueError as e:
-            raise ValidationError(
-                f"Invalid runway code format: {e}"
-            ) from e
+            raise ValidationError(f"Invalid runway code format: {e}") from e
 
         RunwayCodeValidator.validate(code)
         return code

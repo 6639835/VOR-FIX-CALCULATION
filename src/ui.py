@@ -3,34 +3,17 @@ User interface for the VOR-FIX Coordinate Calculator.
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import filedialog, messagebox, ttk
 from typing import Optional
 
-from .constants import (
-    FileType,
-    OperationType,
-    FixType,
-    FixUsage,
-)
-from .models import (
-    Coordinates,
-    WaypointResult,
-    FixResult,
-    NavAidEntry,
-)
 from .calculations import calculate_waypoint, get_radius_designator
+from .constants import FileType, FixType, FixUsage, OperationType
 from .file_operations import DataFileReader
-from .validators import (
-    ValidationError,
-    CoordinateValidator,
-    BearingValidator,
-    DistanceValidator,
-    DeclinationValidator,
-    AirportCodeValidator,
-    VORIdentifierValidator,
-    RunwayCodeValidator,
-)
-from .formatters import WaypointFormatter, FixFormatter, NavAidFormatter
+from .formatters import FixFormatter, NavAidFormatter, WaypointFormatter
+from .models import Coordinates, FixResult, NavAidEntry, WaypointResult
+from .validators import (AirportCodeValidator, BearingValidator, CoordinateValidator,
+                         DeclinationValidator, DistanceValidator, RunwayCodeValidator,
+                         ValidationError, VORIdentifierValidator)
 
 
 class CoordinateCalculatorApp:
@@ -91,19 +74,14 @@ class CoordinateCalculatorApp:
             textvariable=self.mode_var,
             values=["WAYPOINT", "FIX"],
             state="readonly",
-            width=15
+            width=15,
         )
         mode_combo.pack(side=tk.LEFT, padx=5)
-        self.mode_var.trace_add('write', lambda *args: self._on_mode_change())
+        self.mode_var.trace_add("write", lambda *args: self._on_mode_change())
 
     def _create_file_section(self):
         """Create the file selection section."""
-        frame = tk.LabelFrame(
-            self.root,
-            text="Data Files",
-            padx=10,
-            pady=5
-        )
+        frame = tk.LabelFrame(self.root, text="Data Files", padx=10, pady=5)
         frame.pack(padx=10, pady=5, fill="x")
 
         # FIX file row
@@ -113,11 +91,9 @@ class CoordinateCalculatorApp:
         tk.Label(fix_frame, text="FIX File:", width=10, anchor="w").pack(side=tk.LEFT)
         self.entry_fix_file = tk.Entry(fix_frame)
         self.entry_fix_file.pack(side=tk.LEFT, fill="x", expand=True, padx=5)
-        tk.Button(
-            fix_frame,
-            text="Browse",
-            command=lambda: self._browse_file(FileType.FIX)
-        ).pack(side=tk.LEFT)
+        tk.Button(fix_frame, text="Browse", command=lambda: self._browse_file(FileType.FIX)).pack(
+            side=tk.LEFT
+        )
 
         # NAV file row
         nav_frame = tk.Frame(frame)
@@ -126,11 +102,9 @@ class CoordinateCalculatorApp:
         tk.Label(nav_frame, text="NAV File:", width=10, anchor="w").pack(side=tk.LEFT)
         self.entry_nav_file = tk.Entry(nav_frame)
         self.entry_nav_file.pack(side=tk.LEFT, fill="x", expand=True, padx=5)
-        tk.Button(
-            nav_frame,
-            text="Browse",
-            command=lambda: self._browse_file(FileType.NAV)
-        ).pack(side=tk.LEFT)
+        tk.Button(nav_frame, text="Browse", command=lambda: self._browse_file(FileType.NAV)).pack(
+            side=tk.LEFT
+        )
 
     def _create_waypoint_section(self):
         """Create the waypoint input section."""
@@ -148,7 +122,7 @@ class CoordinateCalculatorApp:
             textvariable=self.search_file_type,
             values=["NAV", "FIX"],
             state="readonly",
-            width=10
+            width=10,
         )
         search_combo.grid(row=row, column=1, padx=5, pady=3, sticky="w")
         row += 1
@@ -159,11 +133,9 @@ class CoordinateCalculatorApp:
         )
         self.entry_waypoint_id = tk.Entry(frame)
         self.entry_waypoint_id.grid(row=row, column=1, padx=5, pady=3, sticky="ew")
-        tk.Button(
-            frame,
-            text="Search",
-            command=self._search_waypoint_coords
-        ).grid(row=row, column=2, padx=5, pady=3)
+        tk.Button(frame, text="Search", command=self._search_waypoint_coords).grid(
+            row=row, column=2, padx=5, pady=3
+        )
         row += 1
 
         # Coordinates
@@ -219,20 +191,16 @@ class CoordinateCalculatorApp:
             row=row, column=0, padx=5, pady=3, sticky="e"
         )
         self.combo_wp_operation = ttk.Combobox(
-            frame,
-            values=[op.label for op in OperationType],
-            state="readonly"
+            frame, values=[op.label for op in OperationType], state="readonly"
         )
         self.combo_wp_operation.current(0)
         self.combo_wp_operation.grid(row=row, column=1, padx=5, pady=3, sticky="ew")
         row += 1
 
         # Calculate button
-        tk.Button(
-            frame,
-            text="Calculate Waypoint",
-            command=self._calculate_waypoint
-        ).grid(row=row, column=0, columnspan=3, pady=10)
+        tk.Button(frame, text="Calculate Waypoint", command=self._calculate_waypoint).grid(
+            row=row, column=0, columnspan=3, pady=10
+        )
 
     def _create_fix_section(self):
         """Create the fix input section."""
@@ -250,7 +218,7 @@ class CoordinateCalculatorApp:
             textvariable=self.search_file_type,
             values=["FIX", "NAV"],
             state="readonly",
-            width=10
+            width=10,
         )
         search_combo.grid(row=row, column=1, padx=5, pady=3, sticky="w")
         row += 1
@@ -261,11 +229,9 @@ class CoordinateCalculatorApp:
         )
         self.entry_fix_id = tk.Entry(frame)
         self.entry_fix_id.grid(row=row, column=1, padx=5, pady=3, sticky="ew")
-        tk.Button(
-            frame,
-            text="Search",
-            command=self._search_fix_coords
-        ).grid(row=row, column=2, padx=5, pady=3)
+        tk.Button(frame, text="Search", command=self._search_fix_coords).grid(
+            row=row, column=2, padx=5, pady=3
+        )
         row += 1
 
         # Coordinates
@@ -281,9 +247,7 @@ class CoordinateCalculatorApp:
             row=row, column=0, padx=5, pady=3, sticky="e"
         )
         self.combo_fix_type = ttk.Combobox(
-            frame,
-            values=[ft.label for ft in FixType],
-            state="readonly"
+            frame, values=[ft.label for ft in FixType], state="readonly"
         )
         self.combo_fix_type.current(0)
         self.combo_fix_type.grid(row=row, column=1, padx=5, pady=3, sticky="ew")
@@ -294,9 +258,7 @@ class CoordinateCalculatorApp:
             row=row, column=0, padx=5, pady=3, sticky="e"
         )
         self.combo_fix_usage = ttk.Combobox(
-            frame,
-            values=[fu.label for fu in FixUsage],
-            state="readonly"
+            frame, values=[fu.label for fu in FixUsage], state="readonly"
         )
         self.combo_fix_usage.current(0)
         self.combo_fix_usage.grid(row=row, column=1, padx=5, pady=3, sticky="ew")
@@ -323,20 +285,16 @@ class CoordinateCalculatorApp:
             row=row, column=0, padx=5, pady=3, sticky="e"
         )
         self.combo_fix_operation = ttk.Combobox(
-            frame,
-            values=[op.label for op in OperationType],
-            state="readonly"
+            frame, values=[op.label for op in OperationType], state="readonly"
         )
         self.combo_fix_operation.current(0)
         self.combo_fix_operation.grid(row=row, column=1, padx=5, pady=3, sticky="ew")
         row += 1
 
         # Calculate button
-        tk.Button(
-            frame,
-            text="Calculate FIX",
-            command=self._calculate_fix
-        ).grid(row=row, column=0, columnspan=3, pady=10)
+        tk.Button(frame, text="Calculate FIX", command=self._calculate_fix).grid(
+            row=row, column=0, columnspan=3, pady=10
+        )
 
     def _create_output_section(self):
         """Create the output display section."""
@@ -344,11 +302,7 @@ class CoordinateCalculatorApp:
         frame.pack(padx=10, pady=5, fill="both", expand=True)
 
         self.output_text = tk.Text(
-            frame,
-            height=6,
-            state="disabled",
-            wrap="word",
-            font=("Courier", 10)
+            frame, height=6, state="disabled", wrap="word", font=("Courier", 10)
         )
         self.output_text.pack(fill="both", expand=True, padx=5, pady=5)
 
@@ -357,23 +311,11 @@ class CoordinateCalculatorApp:
         frame = tk.Frame(self.root)
         frame.pack(padx=10, pady=10, fill="x")
 
-        tk.Button(
-            frame,
-            text="Clear Input",
-            command=self._clear_fields
-        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(frame, text="Clear Input", command=self._clear_fields).pack(side=tk.LEFT, padx=5)
 
-        tk.Button(
-            frame,
-            text="Copy Result",
-            command=self._copy_output
-        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(frame, text="Copy Result", command=self._copy_output).pack(side=tk.LEFT, padx=5)
 
-        tk.Button(
-            frame,
-            text="Exit",
-            command=self.root.quit
-        ).pack(side=tk.RIGHT, padx=5)
+        tk.Button(frame, text="Exit", command=self.root.quit).pack(side=tk.RIGHT, padx=5)
 
     def _on_mode_change(self):
         """Handle mode selection change."""
@@ -393,10 +335,7 @@ class CoordinateCalculatorApp:
         """Open file browser dialog."""
         filepath = filedialog.askopenfilename(
             title=f"Select {file_type.value} File",
-            filetypes=[
-                (f"{file_type.value} files", "*.dat"),
-                ("All files", "*.*")
-            ]
+            filetypes=[(f"{file_type.value} files", "*.dat"), ("All files", "*.*")],
         )
 
         if filepath:
@@ -482,21 +421,13 @@ class CoordinateCalculatorApp:
         dialog.transient(self.root)
         dialog.grab_set()
 
-        tk.Label(
-            dialog,
-            text="Multiple entries found. Please select one:"
-        ).pack(pady=10)
+        tk.Label(dialog, text="Multiple entries found. Please select one:").pack(pady=10)
 
         selected_var = tk.StringVar()
 
         for i, entry in enumerate(entries):
             display_text = NavAidFormatter.format_for_display(entry)
-            rb = tk.Radiobutton(
-                dialog,
-                text=display_text,
-                variable=selected_var,
-                value=str(i)
-            )
+            rb = tk.Radiobutton(dialog, text=display_text, variable=selected_var, value=str(i))
             rb.pack(anchor="w", padx=20)
 
         def on_confirm():
@@ -507,11 +438,7 @@ class CoordinateCalculatorApp:
             callback(entries[int(selection)])
             dialog.destroy()
 
-        tk.Button(
-            dialog,
-            text="Confirm",
-            command=on_confirm
-        ).pack(pady=10)
+        tk.Button(dialog, text="Confirm", command=on_confirm).pack(pady=10)
 
         dialog.wait_window()
 
@@ -565,7 +492,7 @@ class CoordinateCalculatorApp:
                 operation_code=op_code,
                 vor_identifier=vor_id,
                 magnetic_bearing=bearing,
-                distance_nm=distance
+                distance_nm=distance,
             )
 
             # Format and display output
@@ -623,7 +550,7 @@ class CoordinateCalculatorApp:
                 usage_code=usage_code,
                 runway_code=str(runway_code),
                 airport_code=airport_code,
-                operation_code=op_code
+                operation_code=op_code,
             )
 
             # Format and display output

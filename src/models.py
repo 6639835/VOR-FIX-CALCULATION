@@ -9,6 +9,7 @@ from typing import Optional
 @dataclass(frozen=True)
 class Coordinates:
     """Geographic coordinates."""
+
     latitude: float
     longitude: float
 
@@ -19,6 +20,7 @@ class Coordinates:
 @dataclass
 class WaypointInput:
     """Input data for waypoint calculation."""
+
     coordinates: Optional[Coordinates]
     identifier: str
     magnetic_bearing: float
@@ -31,6 +33,7 @@ class WaypointInput:
 @dataclass
 class WaypointResult:
     """Result of waypoint calculation."""
+
     coordinates: Coordinates
     radius_letter: str
     airport_code: str
@@ -43,6 +46,7 @@ class WaypointResult:
 @dataclass
 class FixInput:
     """Input data for fix calculation."""
+
     coordinates: Coordinates
     identifier: str
     fix_type: str
@@ -54,6 +58,7 @@ class FixInput:
 @dataclass
 class FixResult:
     """Result of fix calculation."""
+
     coordinates: Coordinates
     fix_code: str
     usage_code: str
@@ -65,6 +70,7 @@ class FixResult:
 @dataclass
 class NavAidEntry:
     """Navigation aid entry from data file."""
+
     type_code: str
     latitude: float
     longitude: float
