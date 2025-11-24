@@ -1,0 +1,31 @@
+# Include documentation and license files
+include README.md
+include LICENSE
+include requirements.txt
+
+# Include configuration files
+include pyproject.toml
+include MANIFEST.in
+
+# Exclude development and build files
+exclude .gitignore
+exclude .DS_Store
+
+# Exclude test and development directories
+recursive-exclude tests *
+recursive-exclude .venv *
+recursive-exclude .git *
+recursive-exclude __pycache__ *
+recursive-exclude *.egg-info *
+
+# Include any data files in the src package
+recursive-include src *.txt
+recursive-include src *.json
+recursive-include src *.dat
+recursive-include src *.csv
+
+# Exclude Python cache files
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude *.so
+global-exclude .DS_Store
